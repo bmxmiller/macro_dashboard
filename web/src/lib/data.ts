@@ -8,6 +8,11 @@ function load<T>(name: string): Promise<T> {
   if (!cache.has(name)) {
     const url = `${import.meta.env.BASE_URL}data/${name}.json`;
     cache.set(name, fetch(url, { cache: "no-cache" }).then((r) => {
+      // Static hosts (and Vite's SPA fallback) may answer a missing file with index.html.
+      const isJson = (r.headers.get("content-type") ?? "").includes("json");
+      if (r.status === 404 || (r.ok && !isJson)) {
+        throw new Error(`no data yet: the "${name}" section hasn't been built (run the pipeline)`);
+      }
       if (!r.ok) throw new Error(`${name}.json: HTTP ${r.status}`);
       return r.json();
     }));
