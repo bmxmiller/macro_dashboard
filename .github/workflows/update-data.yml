@@ -1,0 +1,82 @@
+name: update-data
+
+# Fetches fresh data, rebuilds web/public/data/*.json and commits it if anything changed.
+# The deploy workflow then picks up the new commit via `workflow_run` (see deploy.yml).
+
+on:
+  schedule:
+    # Cron is UTC. Weekdays 22:30 UTC = after the US close (16:00 ET) in both EST and EDT.
+    - cron: "30 22 * * 1-5"
+    # Saturday midday: full weekly rebuild (picks up late revisions and weekend releases).
+    - cron: "0 12 * * 6"
+  workflow_dispatch:
+    inputs:
+      sections:
+        description: "Space-separated sections to rebuild (e.g. 'markets economy'). Leave empty for all."
+        required: false
+        default: ""
+        type: string
+
+permissions:
+  contents: write
+
+# Never run two data updates at once (they would race on the same files / push).
+concurrency:
+  group: update-data
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: pipeline/requirements.txt
+
+      - name: Install requirements
+        run: pip install -r pipeline/requirements.txt
+
+      # The pipeline exits 1 if any section fails, but it still writes every good
+      # section (failed ones keep their last good JSON and are flagged in meta.json).
+      # So keep going, commit what we have, and report the failure at the end.
+      - name: Build data
+        id: build
+        continue-on-error: true
+        env:
+          FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          # Passed via env (not inlined) so the input can't inject shell code.
+          SECTIONS: ${{ github.event.inputs.sections }}
+        run: |
+          if [ -n "${SECTIONS// /}" ]; then
+            # shellcheck disable=SC2086  # word-splitting into separate args is intended
+            python -m pipeline.build --only $SECTIONS
+          else
+            python -m pipeline.build
+          fi
+
+      - name: Commit changed data
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add web/public/data/*.json
+          if git diff --cached --quiet; then
+            echo "No data changes to commit."
+            exit 0
+          fi
+          git commit -m "data: update $(date -u +'%Y-%m-%d %H:%M') UTC"
+          # Rebase in case someone pushed while the build was running.
+          git pull --rebase --autostash origin "${GITHUB_REF_NAME}"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
+
+      - name: Report section failures
+        if: steps.build.outcome == 'failure'
+        run: |
+          echo "::warning title=Pipeline section failed::One or more sections failed; good sections were still committed. See the 'Build data' log and web/public/data/meta.json."
+          exit 1
