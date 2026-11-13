@@ -1,0 +1,9 @@
+pandas>=2.2
+numpy>=1.26
+requests>=2.32
+yfinance>=0.2.50
+pyyaml>=6.0
+pydantic>=2.7
+pytest>=8.0
+lxml>=5.0
+feedparser>=6.0

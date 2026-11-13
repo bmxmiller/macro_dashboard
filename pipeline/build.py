@@ -1,0 +1,346 @@
+"""Pipeline entry point: fetch → transform → validate → write JSON for the web app.
+
+    python -m pipeline.build                 # everything
+    python -m pipeline.build --only markets  # one section
+
+Each section is isolated: if a source fails, the previous good JSON is kept and
+the failure is recorded in meta.json so the UI can flag that panel as stale.
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import logging
+import sys
+import traceback
+from datetime import date, datetime, timezone
+from pathlib import Path
+
+import pandas as pd
+import yaml
+
+from .fetchers import fomc, fred, yahoo
+from .schemas import Calendar, Economy, Markets, YieldCurve
+from .transforms import econ
+from .transforms.returns import PERIODS, period_returns, sparkline, trailing_yield
+
+ROOT = Path(__file__).resolve().parent.parent
+REGISTRY = Path(__file__).resolve().parent / "registry"
+OUT = ROOT / "web" / "public" / "data"
+
+log = logging.getLogger("build")
+
+
+def load_dotenv(path: Path = ROOT / ".env") -> None:
+    """Minimal .env loader for local runs (CI uses GitHub Secrets as env vars)."""
+    import os
+    if not path.exists():
+        return
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if line and not line.startswith("#") and "=" in line:
+            k, v = line.split("=", 1)
+            os.environ.setdefault(k.strip(), v.strip().strip('"').strip("'"))
+
+
+def now_iso() -> str:
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+
+
+def load_yaml(name: str) -> dict:
+    return yaml.safe_load((REGISTRY / name).read_text(encoding="utf-8"))
+
+
+def write_json(name: str, model) -> None:
+    OUT.mkdir(parents=True, exist_ok=True)
+    payload = model.model_dump(mode="json") if hasattr(model, "model_dump") else model
+    (OUT / name).write_text(json.dumps(payload, separators=(",", ":"), allow_nan=False), encoding="utf-8")
+    log.info("wrote %s (%.1f KB)", name, (OUT / name).stat().st_size / 1024)
+
+
+def clean(v):
+    if v is None:
+        return None
+    try:
+        f = float(v)
+    except (TypeError, ValueError):
+        return None
+    return None if pd.isna(f) else f
+
+
+# ── Markets ────────────────────────────────────────────────────────────────
+
+def build_markets() -> Markets:
+    uni = load_yaml("universes.yaml")["panels"]
+    tickers = [it["t"] for p in uni.values() for g in p["groups"] for it in g["items"]]
+    px = yahoo.fetch_prices(tickers, period="4y")
+
+    panels = {}
+    missing = []
+    for pid, p in uni.items():
+        groups = []
+        for g in p["groups"]:
+            rows = []
+            for it in g["items"]:
+                t = it["t"]
+                tr = px.adj_close[t].dropna() if t in px.adj_close else pd.Series(dtype=float)
+                cl = px.close[t].dropna() if t in px.close else pd.Series(dtype=float)
+                if tr.empty:
+                    missing.append(t)
+                    continue
+                mode = "diff" if it.get("kind") == "yield" or t == "^TNX" else "pct"
+                series = 1 / tr if it.get("invert") else tr
+                rows.append({
+                    "ticker": t,
+                    "name": it["name"],
+                    "tag": it.get("tag", t),
+                    "units": it.get("units"),
+                    "price": round(float(cl.iloc[-1]), 4) if not cl.empty else None,
+                    "asof": cl.index[-1].strftime("%Y-%m-%d") if not cl.empty else None,
+                    "mode": mode,
+                    "returns": period_returns(series, mode=mode),
+                    "spark": sparkline(series),
+                    "yield_ttm": trailing_yield(cl, px.dividends[t]) if "dur" in it else None,
+                    "duration": it.get("dur"),
+                    "source_url": yahoo.quote_url(t),
+                })
+            groups.append({"label": g["label"], "rows": rows})
+        panels[pid] = {"id": pid, "title": p["title"], "about": p["about"], "groups": groups}
+    if missing:
+        log.warning("no price data for: %s", ", ".join(missing))
+    return Markets(generated_at=now_iso(), periods=PERIODS, panels=panels)
+
+
+# ── Economy ────────────────────────────────────────────────────────────────
+
+def _series_ids(metrics: list[dict]) -> list[str]:
+    ids = []
+    for m in metrics:
+        ids += [m["numerator"], m["denominator"]] if m["transform"] == "ratio" else [m["series"]]
+    return ids
+
+
+def recession_periods(usrec: pd.Series) -> list[list[str]]:
+    periods, start = [], None
+    for d, v in usrec.items():
+        if v >= 1 and start is None:
+            start = d
+        elif v < 1 and start is not None:
+            periods.append([start.strftime("%Y-%m-%d"), d.strftime("%Y-%m-%d")])
+            start = None
+    if start is not None:
+        periods.append([start.strftime("%Y-%m-%d"), usrec.index[-1].strftime("%Y-%m-%d")])
+    return periods
+
+
+def build_economy() -> Economy:
+    reg = load_yaml("metrics.yaml")
+    metrics = reg["metrics"]
+    raw = fred.fetch_many(_series_ids(metrics) + ["USREC"], start="1995-01-01")
+
+    out = []
+    for m in metrics:
+        try:
+            needed = [m["numerator"], m["denominator"]] if m["transform"] == "ratio" else [m["series"]]
+            for sid in needed:
+                if isinstance(raw.get(sid), Exception):
+                    raise raw[sid]
+            s = econ.apply_transform(m, raw)
+            if s.empty:
+                raise ValueError("empty series")
+        except Exception as e:  # noqa: BLE001
+            log.warning("metric %s failed: %s", m["id"], e)
+            continue
+        last_d = s.index[-1]
+        ya =s.loc[:last_d - pd.DateOffset(years=1)]
+        primary = m.get("series") or m["numerator"]
+        out.append({
+            "id": m["id"], "group": m["group"], "name": m["name"], "units": m["units"],
+            "decimals": m["decimals"], "good": m["good"], "frequency": m["frequency"],
+            "value": round(float(s.iloc[-1]), 4),
+            "date": last_d.strftime("%Y-%m-%d"),
+            "period_label": econ.period_label(last_d, m["frequency"]),
+            "prev": round(float(s.iloc[-2]), 4) if len(s) > 1 else None,
+            "change": round(float(s.iloc[-1] - s.iloc[-2]), 4) if len(s) > 1 else None,
+            "year_ago": round(float(ya.iloc[-1]), 4) if not ya.empty else None,
+            "zscore": econ.zscore(s),
+            "percentile": econ.percentile(s),
+            "history": econ.history(s),
+            "about": m["about"],
+            "source_url": m["source_url"],
+            "data_url": fred.series_url(primary),
+        })
+
+    usrec = raw.get("USREC")
+    recs = recession_periods(usrec) if isinstance(usrec, pd.Series) else []
+    if not out:
+        raise RuntimeError("no economic metrics could be built")
+    return Economy(generated_at=now_iso(), groups=reg["groups"], metrics=out, recessions=recs)
+
+
+# ── Yield curve ────────────────────────────────────────────────────────────
+
+def build_yield_curve() -> YieldCurve:
+    yc = load_yaml("metrics.yaml")["yield_curve"]
+    ids = [t["series"] for t in yc["tenors"]] + [s["series"] for s in yc["spreads"]]
+    raw = fred.fetch_many(ids, start=str(date.today().year - 6) + "-01-01")
+
+    asof = None
+    points = []
+    for t in yc["tenors"]:
+        s = raw.get(t["series"])
+        if not isinstance(s, pd.Series) or s.empty:
+            points.append({"label": t["label"], "years": t["years"], "now": None, "m1": None, "y1": None})
+            continue
+        last = s.index[-1]
+        asof = max(asof, last) if asof is not None else last
+        def at(off):  # noqa: E306
+            sub = s.loc[:last - off]
+            return round(float(sub.iloc[-1]), 3) if not sub.empty else None
+        points.append({
+            "label": t["label"], "years": t["years"],
+            "now": round(float(s.iloc[-1]), 3),
+            "m1": at(pd.DateOffset(months=1)), "y1": at(pd.DateOffset(years=1)),
+        })
+
+    spreads = []
+    for sp in yc["spreads"]:
+        s = raw.get(sp["series"])
+        if not isinstance(s, pd.Series) or s.empty:
+            continue
+        spreads.append({
+            "label": sp["label"], "series": sp["series"],
+            "value": round(float(s.iloc[-1]), 3),
+            "m1": clean(s.loc[:s.index[-1] - pd.DateOffset(months=1)].iloc[-1]),
+            "history": econ.history(s, years=6),
+            "data_url": fred.series_url(sp["series"]),
+        })
+    return YieldCurve(
+        generated_at=now_iso(), asof=asof.strftime("%Y-%m-%d") if asof is not None else None,
+        about={k: yc["about"][k] for k in ("what", "why", "how_to_read")},
+        source_url=yc["source_url"], points=points, spreads=spreads,
+    )
+
+
+# ── Calendar ───────────────────────────────────────────────────────────────
+
+RELEASE_META = {  # metric id → (display name, ET release time, importance)
+    "cpi_yoy": ("Consumer Prices (CPI)", "8:30 AM ET", "high"),
+    "ppi_yoy": ("Producer Prices (PPI)", "8:30 AM ET", "medium"),
+    "core_pce_yoy": ("PCE Inflation / Personal Income", "8:30 AM ET", "high"),
+    "nfp": ("Jobs Report (NFP)", "8:30 AM ET", "high"),
+    "claims": ("Initial Jobless Claims", "8:30 AM ET", "low"),
+    "jolts": ("JOLTS Job Openings", "10:00 AM ET", "medium"),
+    "gdp_qoq": ("GDP Report", "8:30 AM ET", "high"),
+    "retail_mom": ("Retail Sales", "8:30 AM ET", "medium"),
+    "umich": ("UMich Consumer Sentiment", "10:00 AM ET", "medium"),
+    "indpro_yoy": ("Industrial Production", "9:15 AM ET", "low"),
+    "housing_starts": ("Housing Starts", "8:30 AM ET", "low"),
+}
+
+
+def _fmt(m: dict) -> str:
+    v = m["value"]
+    sign = "+" if m["units"] in ("%", "k") and v > 0 and m["id"] in ("nfp", "retail_mom", "gdp_qoq") else ""
+    return f"{sign}{v:,.{m['decimals']}f}{m['units'] if m['units'] in ('%', 'k', 'm') else ''}"
+
+
+def build_calendar(economy: Economy | None) -> Calendar:
+    today = date.today().isoformat()
+    metrics = {m.id: m.model_dump() for m in economy.metrics} if economy else {}
+    events = []
+
+    fed = metrics.get("fed_funds")
+    for mt in fomc.fetch_meetings():
+        if mt["date"] < today:
+            continue
+        events.append({
+            "date": mt["date"], "time": "2:00 PM ET",
+            "name": "Fed Decision (FOMC)" + (" + Projections" if mt["sep"] else ""),
+            "kind": "fomc", "metric_id": "fed_funds", "importance": "high",
+            "last_value": f"{fed['value'] - 0.25:.2f}–{fed['value']:.2f}%" if fed else None,
+            "last_label": "RANGE", "source_url": fomc.URL,
+        })
+
+    complete = False
+    note = None
+    if fred.api_key():
+        reg = {m["id"]: m for m in load_yaml("metrics.yaml")["metrics"]}
+        rel_to_metric = {}
+        for mid in RELEASE_META:
+            m = reg.get(mid)
+            if not m:
+                continue
+            try:
+                rel = fred.release_for_series(m.get("series") or m["numerator"])
+                if rel:
+                    rel_to_metric[rel["id"]] = mid
+            except Exception as e:  # noqa: BLE001
+                log.warning("release lookup %s failed: %s", mid, e)
+        seen = set()
+        for rd in fred.upcoming_release_dates(days_ahead=45):
+            mid = rel_to_metric.get(rd["release_id"])
+            if not mid or rd["date"] < today or (mid, rd["date"]) in seen:
+                continue
+            seen.add((mid, rd["date"]))
+            name, time, imp = RELEASE_META[mid]
+            m = metrics.get(mid)
+            events.append({
+                "date": rd["date"], "time": time, "name": name, "kind": "release",
+                "metric_id": mid, "importance": imp,
+                "last_value": _fmt(m) if m else None,
+                "last_label": m["name"].upper() if m else None,
+                "source_url": reg[mid]["source_url"],
+            })
+        complete = True
+    else:
+        note = "Set FRED_API_KEY to include data-release dates (CPI, jobs, GDP…). Showing FOMC only."
+
+    events.sort(key=lambda e: (e["date"], e["time"] or ""))
+    return Calendar(generated_at=now_iso(), complete=complete, note=note, events=events)
+
+
+# ── Orchestration ──────────────────────────────────────────────────────────
+
+def main(argv=None) -> int:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--only", nargs="*", choices=["markets", "economy", "yield_curve", "calendar"])
+    args = ap.parse_args(argv)
+    load_dotenv()
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
+
+    sections = args.only or ["markets", "economy", "yield_curve", "calendar"]
+    meta_path = OUT / "meta.json"
+    meta = json.loads(meta_path.read_text()) if meta_path.exists() else {"sections": {}}
+    meta.setdefault("sections", {})
+
+    economy = None
+    status_ok = True
+    for name in sections:
+        try:
+            if name == "markets":
+                model = build_markets()
+            elif name == "economy":
+                model = economy = build_economy()
+            elif name == "yield_curve":
+                model = build_yield_curve()
+            else:
+                if economy is None and (OUT / "economy.json").exists():
+                    economy = Economy.model_validate_json((OUT / "economy.json").read_text())
+                model = build_calendar(economy)
+            write_json(f"{name}.json", model)
+            meta["sections"][name] = {"ok": True, "updated_at": now_iso()}
+        except Exception as e:  # noqa: BLE001
+            status_ok = False
+            log.error("section %s failed: %s", name, e)
+            traceback.print_exc()
+            prev = meta["sections"].get(name, {})
+            meta["sections"][name] = {**prev, "ok": False, "error": str(e)[:300], "failed_at": now_iso()}
+
+    meta["generated_at"] = now_iso()
+    write_json("meta.json", meta)
+    return 0 if status_ok else 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

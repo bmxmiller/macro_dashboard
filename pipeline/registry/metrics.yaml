@@ -1,0 +1,417 @@
+# Economic indicator registry: the single source of truth for every macro metric.
+#
+# Fields
+#   id          stable key used by the frontend
+#   source      fred (others added in later phases)
+#   series      provider series id (for `ratio`, numerator/denominator)
+#   transform   level | yoy | mom_pct | diff | ratio
+#   units       display suffix: "%", "k", "idx", "$bn"...
+#   decimals    display precision
+#   good        "up" | "down" | "neutral": direction that is *benign for the economy*
+#               (drives arrow colour; it is not an investment signal)
+#   frequency   monthly | quarterly | weekly | daily (informational)
+#   about       what / why / how_to_read: shown in the ⓘ popover
+#   source_url  official page the row links to
+#
+# About texts were drafted with AI assistance and reviewed by hand.
+
+groups:
+  - id: inflation
+    label: Inflation
+  - id: labor
+    label: Labor
+  - id: growth
+    label: Growth & Activity
+  - id: consumer
+    label: Consumer
+  - id: policy
+    label: Policy & Money
+  - id: debt
+    label: Debt & Credit
+
+metrics:
+  # ── Inflation ─────────────────────────────────────────────────────────────
+  - id: cpi_yoy
+    group: inflation
+    name: CPI YoY
+    source: fred
+    series: CPIAUCSL
+    transform: yoy
+    units: "%"
+    decimals: 1
+    good: down
+    frequency: monthly
+    source_url: https://www.bls.gov/cpi/
+    about:
+      what: Year-over-year change in the Consumer Price Index for all urban consumers, the headline measure of US inflation published monthly by the BLS.
+      why: Headline inflation drives real wages, consumer sentiment and political pressure on the Fed. It also sets the inflation adjustment for TIPS and Social Security.
+      how_to_read: The Fed's target is about 2% (on PCE, which usually runs ~0.3–0.5pp below CPI). Readings above 3% and rising point to tighter policy, which is bearish for duration. Falling readings open the door to rate cuts. Food and energy make the headline number volatile, so check it against Core CPI.
+
+  - id: core_cpi_yoy
+    group: inflation
+    name: Core CPI YoY
+    source: fred
+    series: CPILFESL
+    transform: yoy
+    units: "%"
+    decimals: 1
+    good: down
+    frequency: monthly
+    source_url: https://www.bls.gov/cpi/
+    about:
+      what: CPI excluding food and energy, year over year.
+      why: Stripping out the most volatile components gives a better read on underlying, persistent inflation, which is what monetary policy can actually influence.
+      how_to_read: Shelter is ~40% of core CPI and lags market rents by roughly 12 months. Core above headline usually means inflation is "sticky" and services-driven. Core falling steadily towards 2–2.5% supports an easing cycle.
+
+  - id: core_pce_yoy
+    group: inflation
+    name: Core PCE YoY
+    source: fred
+    series: PCEPILFE
+    transform: yoy
+    units: "%"
+    decimals: 1
+    good: down
+    frequency: monthly
+    source_url: https://www.bea.gov/data/personal-consumption-expenditures-price-index-excluding-food-and-energy
+    about:
+      what: The Personal Consumption Expenditures price index excluding food and energy, from the BEA.
+      why: This is the Fed's preferred inflation gauge and the one its 2% target refers to. It has broader coverage than CPI, adjusts weights as consumers substitute, and gives shelter a smaller weight.
+      how_to_read: Compare it with the 2% target and with the Fed's own projections (SEP). A persistent gap above 2.5% limits how far the Fed can cut, even if growth slows.
+
+  - id: ppi_yoy
+    group: inflation
+    name: PPI Final Demand YoY
+    source: fred
+    series: PPIFIS
+    transform: yoy
+    units: "%"
+    decimals: 1
+    good: down
+    frequency: monthly
+    source_url: https://www.bls.gov/ppi/
+    about:
+      what: The Producer Price Index for final demand measures prices received by domestic producers, i.e. wholesale and pipeline inflation.
+      why: Producer costs often pass through to consumer prices with a lag, so PPI is a leading hint for CPI. A gap between PPI and CPI also signals margin pressure or relief for companies.
+      how_to_read: PPI rising faster than CPI means input costs are outpacing selling prices, which squeezes margins. PPI rolling over tends to lead CPI disinflation by a few months.
+
+  - id: breakeven_5y
+    group: inflation
+    name: 5Y Breakeven Inflation
+    source: fred
+    series: T5YIE
+    transform: level
+    units: "%"
+    decimals: 2
+    good: neutral
+    frequency: daily
+    source_url: https://fred.stlouisfed.org/series/T5YIE
+    about:
+      what: The 5-year nominal Treasury yield minus the 5-year TIPS yield, i.e. the bond market's implied average inflation over the next 5 years.
+      why: A real-time, market-based measure of inflation expectations. The Fed watches it closely for signs that expectations are "de-anchoring".
+      how_to_read: Around 2–2.5% is consistent with the Fed's target. A sharp rise suggests markets doubt the Fed's resolve. A collapse (as in 2008 and 2020) signals deflation or recession fears.
+
+  # ── Labor ─────────────────────────────────────────────────────────────────
+  - id: nfp
+    group: labor
+    name: Non-Farm Payrolls
+    source: fred
+    series: PAYEMS
+    transform: diff
+    units: k
+    decimals: 0
+    good: up
+    frequency: monthly
+    source_url: https://www.bls.gov/ces/
+    about:
+      what: The monthly change in the number of US non-farm employees (thousands), from the BLS establishment survey in the Employment Situation report.
+      why: This is the most market-moving monthly macro release. It is the clearest read on labour demand, and through it on consumer income and the Fed's "maximum employment" mandate.
+      how_to_read: The "breakeven" rate of job growth (enough to absorb population growth) is roughly 50–150k depending on immigration. Look at the 3-month average and revisions, not a single print. Large negative revisions are an early recession tell.
+
+  - id: unrate
+    group: labor
+    name: Unemployment Rate
+    source: fred
+    series: UNRATE
+    transform: level
+    units: "%"
+    decimals: 1
+    good: down
+    frequency: monthly
+    source_url: https://www.bls.gov/cps/
+    about:
+      what: The share of the labour force that is jobless and actively seeking work (U-3), from the household survey.
+      why: This is the core input to the Fed's employment mandate. Unemployment tends to rise slowly, then suddenly, which makes the trend more important than the level.
+      how_to_read: A rise of ~0.5pp from the cycle low has historically coincided with recessions (see Sahm Rule). Unemployment that is low and stable is consistent with a soft landing.
+
+  - id: sahm
+    group: labor
+    name: Sahm Rule
+    source: fred
+    series: SAHMREALTIME
+    transform: level
+    units: pp
+    decimals: 2
+    good: down
+    frequency: monthly
+    source_url: https://fred.stlouisfed.org/series/SAHMREALTIME
+    about:
+      what: The 3-month average unemployment rate minus its low over the prior 12 months (Claudia Sahm's real-time recession indicator).
+      why: Historically, every time it crossed 0.50 the US was already in, or entering, a recession. It is a simple, timely and widely watched rule.
+      how_to_read: Below 0.3 is benign. 0.3–0.5 is a warning zone. At or above 0.50 the rule is triggered. It can give false positives when unemployment rises because labour supply grows (immigration) rather than because of layoffs.
+
+  - id: claims
+    group: labor
+    name: Initial Jobless Claims
+    source: fred
+    series: ICSA
+    transform: level
+    scale: 0.001
+    units: k
+    decimals: 0
+    good: down
+    frequency: weekly
+    source_url: https://www.dol.gov/ui/data.pdf
+    about:
+      what: The weekly number of new filings for unemployment insurance (thousands), from the Department of Labor.
+      why: This is the highest-frequency hard data on layoffs. It moves before payrolls and the unemployment rate.
+      how_to_read: Below ~250k is a healthy labour market. A sustained rise of 20–30% from the cycle low has historically preceded recessions. Use the 4-week average to smooth holiday and seasonal noise.
+
+  - id: jolts
+    group: labor
+    name: JOLTS Job Openings
+    source: fred
+    series: JTSJOL
+    transform: level
+    scale: 0.001
+    units: m
+    decimals: 2
+    good: up
+    frequency: monthly
+    source_url: https://www.bls.gov/jlt/
+    about:
+      what: Total job openings in the US economy (millions), from the Job Openings and Labor Turnover Survey.
+      why: This measures labour demand. Openings per unemployed worker shows how tight the market is, which feeds wage growth and services inflation.
+      how_to_read: Falling openings with stable unemployment is the "soft landing" path (cooling without layoffs). Openings below pre-2020 levels (~7m) point to a loosening market.
+
+  # ── Growth & activity ────────────────────────────────────────────────────
+  - id: gdp_qoq
+    group: growth
+    name: Real GDP (QoQ SAAR)
+    source: fred
+    series: A191RL1Q225SBEA
+    transform: level
+    units: "%"
+    decimals: 1
+    good: up
+    frequency: quarterly
+    source_url: https://www.bea.gov/data/gdp/gross-domestic-product
+    about:
+      what: Quarter-on-quarter growth in inflation-adjusted GDP, annualised (seasonally adjusted annual rate), from the BEA.
+      why: This is the broadest measure of economic output and the "growth" axis of any regime framework.
+      how_to_read: US trend growth is ~1.8–2%. Two negative quarters is a popular (not official) recession definition; the NBER makes the official call. Inventories and net exports swing single quarters, so the final-sales figure is a cleaner read.
+
+  - id: indpro_yoy
+    group: growth
+    name: Industrial Production YoY
+    source: fred
+    series: INDPRO
+    transform: yoy
+    units: "%"
+    decimals: 1
+    good: up
+    frequency: monthly
+    source_url: https://www.federalreserve.gov/releases/g17/current/
+    about:
+      what: Year-over-year change in real output of US manufacturing, mining and utilities (Federal Reserve G.17).
+      why: A monthly, cyclical read on the goods economy. It is closely linked to commodity demand and cyclical equity sectors (Industrials, Materials).
+      how_to_read: Negative YoY readings are common in manufacturing slowdowns even without a full recession, because services now dominate. It is useful alongside PMIs for the growth-momentum axis.
+
+  - id: housing_starts
+    group: growth
+    name: Housing Starts
+    source: fred
+    series: HOUST
+    transform: level
+    scale: 0.001
+    units: m
+    decimals: 2
+    good: up
+    frequency: monthly
+    source_url: https://www.census.gov/construction/nrc/index.html
+    about:
+      what: New privately owned residential construction started, at a seasonally adjusted annual rate (millions of units).
+      why: Housing is the most interest-rate-sensitive part of the economy and a classic leading indicator ("housing IS the business cycle", Ed Leamer).
+      how_to_read: Persistent declines in starts and permits have preceded most US recessions. Rebounds often lead recoveries as rates fall.
+
+  # ── Consumer ─────────────────────────────────────────────────────────────
+  - id: umich
+    group: consumer
+    name: Consumer Sentiment (UMich)
+    source: fred
+    series: UMCSENT
+    transform: level
+    units: idx
+    decimals: 1
+    good: up
+    frequency: monthly
+    source_url: http://www.sca.isr.umich.edu/
+    about:
+      what: The University of Michigan Index of Consumer Sentiment, a survey of household attitudes about finances, business conditions and buying conditions (1966 Q1 = 100).
+      why: This is soft data on the consumer, who makes up ~68% of GDP. The survey also contains closely watched inflation-expectation questions.
+      how_to_read: Sentiment has decoupled from actual spending since 2021 (people say they feel bad but keep spending), so confirm with retail sales. Readings below ~60 are historically recession-like.
+
+  - id: retail_mom
+    group: consumer
+    name: Retail Sales MoM
+    source: fred
+    series: RSAFS
+    transform: mom_pct
+    units: "%"
+    decimals: 1
+    good: up
+    frequency: monthly
+    source_url: https://www.census.gov/retail/index.html
+    about:
+      what: Month-over-month change in advance retail and food-services sales (nominal), from the Census Bureau.
+      why: This is the timeliest hard data on consumer spending.
+      how_to_read: It is nominal, so compare it with CPI. A +0.3% print with +0.3% inflation means flat real spending. The "control group" (ex autos, gas, building materials) feeds directly into GDP.
+
+  - id: saving_rate
+    group: consumer
+    name: Personal Saving Rate
+    source: fred
+    series: PSAVERT
+    transform: level
+    units: "%"
+    decimals: 1
+    good: neutral
+    frequency: monthly
+    source_url: https://www.bea.gov/data/income-saving/personal-saving-rate
+    about:
+      what: Personal saving as a share of disposable personal income, from the BEA.
+      why: It shows how much cushion households have. A low saving rate means spending is being funded by drawing down savings or by credit.
+      how_to_read: The pre-2020 norm was ~6–8%. A low rate supports spending today but leaves consumers fragile to a shock. A rising rate with falling sentiment signals precautionary retrenchment.
+
+  # ── Policy & money ───────────────────────────────────────────────────────
+  - id: fed_funds
+    group: policy
+    name: Fed Funds Upper Target
+    source: fred
+    series: DFEDTARU
+    transform: level
+    units: "%"
+    decimals: 2
+    good: neutral
+    frequency: daily
+    source_url: https://www.federalreserve.gov/monetarypolicy/openmarket.htm
+    about:
+      what: The upper bound of the FOMC's target range for the federal funds rate, the overnight interbank lending rate.
+      why: This is the anchor for every other interest rate in the economy and the main lever of US monetary policy.
+      how_to_read: Compare it with core PCE to get the real policy rate. A real rate above ~1% is restrictive and below 0 is accommodative. Markets price the expected path through 2-year yields and fed funds futures.
+
+  - id: m2_yoy
+    group: policy
+    name: M2 Money Supply YoY
+    source: fred
+    series: M2SL
+    transform: yoy
+    units: "%"
+    decimals: 1
+    good: neutral
+    frequency: monthly
+    source_url: https://www.federalreserve.gov/releases/h6/current/
+    about:
+      what: Year-over-year growth in M2 (cash, checking and savings deposits, small time deposits, retail money funds).
+      why: Broad money growth is a rough gauge of liquidity. Its 2020–21 surge preceded the inflation spike, and its 2023 contraction was the first since the 1930s.
+      how_to_read: The link to inflation is loose and long-lagged. Use it as a liquidity backdrop rather than a timing signal. Positive and accelerating growth is generally supportive of risk assets.
+
+  # ── Debt & credit ────────────────────────────────────────────────────────
+  - id: debt_gdp
+    group: debt
+    name: Federal Debt % GDP
+    source: fred
+    series: GFDEGDQ188S
+    transform: level
+    units: "%"
+    decimals: 1
+    good: down
+    frequency: quarterly
+    source_url: https://fiscaldata.treasury.gov/americas-finance-guide/national-debt/
+    about:
+      what: Total public debt of the US federal government as a percentage of GDP.
+      why: This measures fiscal sustainability. A higher debt load means more Treasury supply, a possibly higher term premium, and less room for fiscal stimulus in a downturn.
+      how_to_read: The trend matters more than the level. Debt rising faster than GDP in an expansion is unusual and points to structural deficits. Watch it alongside the interest-cost metric below.
+
+  - id: interest_gdp
+    group: debt
+    name: Federal Interest % GDP
+    source: fred
+    transform: ratio
+    numerator: A091RC1Q027SBEA
+    denominator: GDP
+    multiplier: 100
+    units: "%"
+    decimals: 1
+    good: down
+    frequency: quarterly
+    source_url: https://fred.stlouisfed.org/series/A091RC1Q027SBEA
+    about:
+      what: Federal government interest payments (annualised) divided by nominal GDP.
+      why: This is debt-service burden, i.e. how much of national output goes to bondholders. Higher rates reprice the debt stock over time as it rolls over.
+      how_to_read: Above ~3% is historically high (last seen in the early 1990s). Rising interest costs crowd out other spending and raise fears of "fiscal dominance", which is bearish for long bonds and supportive of gold.
+
+  - id: hy_oas
+    group: debt
+    name: High-Yield Credit Spread
+    source: fred
+    series: BAMLH0A0HYM2
+    transform: level
+    units: "%"
+    decimals: 2
+    good: down
+    frequency: daily
+    source_url: https://fred.stlouisfed.org/series/BAMLH0A0HYM2
+    about:
+      what: The option-adjusted spread of the ICE BofA US High Yield index over Treasuries, i.e. the extra yield investors demand to hold junk bonds.
+      why: Credit markets often sniff out trouble before equities. Spreads price default risk and risk appetite in real time.
+      how_to_read: Below ~3.5% is tight (complacent or risk-on). 5–6% signals stress. Above 8% is crisis territory (2008, 2020). Sharp widening from tight levels is a reliable risk-off warning.
+
+  - id: vix
+    group: debt
+    name: VIX (Equity Volatility)
+    source: fred
+    series: VIXCLS
+    transform: level
+    units: ""
+    decimals: 1
+    good: down
+    frequency: daily
+    source_url: https://www.cboe.com/tradable_products/vix/
+    about:
+      what: The CBOE Volatility Index, the market's expectation of 30-day S&P 500 volatility implied by option prices.
+      why: Known as the "fear gauge". It is a direct read on the price of portfolio insurance.
+      how_to_read: 12–16 is calm, 20+ is elevated, 30+ is stress. The VIX mean-reverts, so spikes are often buying opportunities in bull markets. A persistently low VIX can breed leverage and fragility.
+
+# ── Yield curve (US Treasury constant-maturity, daily) ────────────────────
+yield_curve:
+  about:
+    what: US Treasury yields across maturities from 1 month to 30 years (constant-maturity series from the Treasury, via FRED), compared with 1 month and 1 year ago.
+    why: The shape of the curve encodes the market's view of future policy rates, growth and inflation. An inverted curve (short rates above long) has preceded every US recession since the 1960s.
+    how_to_read: A steepening curve after an inversion ("bull steepener" from falling short rates) has historically arrived close to recession onset, as the Fed cuts. A "bear steepener" (long rates rising) reflects term-premium or fiscal worries. Watch 2s10s and 3m10y.
+  source_url: https://home.treasury.gov/resource-center/data-chart-center/interest-rates
+  tenors:
+    - { label: 1M,  series: DGS1MO, years: 0.083 }
+    - { label: 3M,  series: DGS3MO, years: 0.25 }
+    - { label: 6M,  series: DGS6MO, years: 0.5 }
+    - { label: 1Y,  series: DGS1,   years: 1 }
+    - { label: 2Y,  series: DGS2,   years: 2 }
+    - { label: 3Y,  series: DGS3,   years: 3 }
+    - { label: 5Y,  series: DGS5,   years: 5 }
+    - { label: 7Y,  series: DGS7,   years: 7 }
+    - { label: 10Y, series: DGS10,  years: 10 }
+    - { label: 20Y, series: DGS20,  years: 20 }
+    - { label: 30Y, series: DGS30,  years: 30 }
+  spreads:
+    - { label: 2s10s, series: T10Y2Y }
+    - { label: 3m10y, series: T10Y3M }

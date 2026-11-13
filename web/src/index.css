@@ -1,0 +1,93 @@
+@import "tailwindcss";
+
+/* Theme: data-theme on <html> is set by the app ("dark" | "light").
+   --accent is overridden at runtime from the user's chosen colour. */
+:root {
+  --accent: #14b8a6;
+  --accent-ink: #04201d;
+
+  --page: #f4f4f1;
+  --surface: #fcfcfb;
+  --surface-2: #f1f0ec;
+  --border: rgba(11, 11, 11, 0.1);
+  --grid: #e1e0d9;
+  --ink: #0b0b0b;
+  --ink-2: #52514e;
+  --muted: #7d7b75;
+
+  /* Diverging performance poles (set per palette below) + neutral midpoint */
+  --pos: #0ca30c;
+  --neg: #d03b3b;
+  --mid: #f0efec;
+  --pos-ink: #006300;
+  --neg-ink: #b42323;
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  --page: #0b0b0c;
+  --surface: #151517;
+  --surface-2: #1c1c1f;
+  --border: rgba(255, 255, 255, 0.08);
+  --grid: #2c2c2a;
+  --ink: #f0efec;
+  --ink-2: #c3c2b7;
+  --muted: #8a8880;
+  --pos: #1f9d55;
+  --neg: #d64545;
+  --mid: #232326;
+  --pos-ink: #3ddc84;
+  --neg-ink: #ff6b6b;
+  color-scheme: dark;
+}
+
+/* Colour-blind-safe diverging pair: blue ↔ red */
+:root[data-palette="cvd"] {
+  --pos: #2a78d6;
+  --neg: #e34948;
+  --pos-ink: #1c5cab;
+  --neg-ink: #b42323;
+}
+:root[data-theme="dark"][data-palette="cvd"] {
+  --pos: #3987e5;
+  --neg: #e66767;
+  --pos-ink: #6da7ec;
+  --neg-ink: #ff8a8a;
+}
+
+html, body, #root { height: 100%; }
+body {
+  margin: 0;
+  background: var(--page);
+  color: var(--ink);
+  font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 12px;
+  -webkit-font-smoothing: antialiased;
+}
+
+.num { font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; }
+.mono { font-family: "JetBrains Mono", ui-monospace, monospace; }
+
+/* Thin, recessive scrollbars for dense panels */
+.scroll-thin { scrollbar-width: thin; scrollbar-color: var(--grid) transparent; }
+.scroll-thin::-webkit-scrollbar { width: 6px; height: 6px; }
+.scroll-thin::-webkit-scrollbar-thumb { background: var(--grid); border-radius: 3px; }
+
+.icon-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px; border-radius: 4px; color: var(--muted);
+  transition: background 0.12s, color 0.12s;
+}
+.icon-btn:hover { background: var(--surface-2); color: var(--ink); }
+.icon-btn:focus-visible, button:focus-visible, a:focus-visible, select:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 1px;
+}
+
+.group-label {
+  font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--accent);
+}
+
+/* Icon buttons sitting on the accent-coloured panel header */
+.header-actions .icon-btn, header[style*="--accent"] > .icon-btn { color: var(--accent-ink); opacity: 0.75; }
+.header-actions .icon-btn:hover { opacity: 1; background: color-mix(in oklab, var(--accent-ink) 15%, transparent); color: var(--accent-ink); }

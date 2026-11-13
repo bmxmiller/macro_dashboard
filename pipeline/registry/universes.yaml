@@ -1,0 +1,168 @@
+# Market universes: every ticker shown in a performance panel.
+# Prices come from Yahoo Finance via yfinance with auto_adjust=True, so
+# returns are TOTAL returns (dividends/distributions reinvested) for ETFs.
+#
+# Per-ticker fields: t (Yahoo ticker), name, tag (small label), invert (FX: show
+# foreign ccy vs USD), units (price display), dur (approx. effective duration, yrs)
+
+panels:
+  index_snapshot:
+    title: Index Snapshot
+    about:
+      what: Headline levels and daily moves for the main US equity indexes, volatility, the dollar, rates, gold, oil and bitcoin.
+      why: A 10-second read of today's risk tone across asset classes.
+      how_to_read: Stocks up, VIX down and credit calm is risk-on. A rising dollar and yields with falling equities is a tightening-financial-conditions day. Gold up alongside a falling dollar often reflects easing expectations.
+    groups:
+      - label: Snapshot
+        items:
+          - { t: SPY, name: S&P 500, tag: SPY }
+          - { t: QQQ, name: Nasdaq 100, tag: QQQ }
+          - { t: DIA, name: Dow Jones, tag: DIA }
+          - { t: IWM, name: Russell 2000, tag: IWM }
+          - { t: ^VIX, name: VIX, tag: INDEX, units: "" }
+          - { t: ^TNX, name: US 10Y Yield, tag: "%", units: "%" }
+          - { t: DX-Y.NYB, name: US Dollar Index, tag: DXY }
+          - { t: GC=F, name: Gold, tag: FUT, units: USD/oz }
+          - { t: CL=F, name: WTI Crude, tag: FUT, units: USD/bbl }
+          - { t: BTC-USD, name: Bitcoin, tag: CRYPTO }
+
+  sectors:
+    title: Sector Performance
+    about:
+      what: Total returns of the 11 GICS sectors of the S&P 500, using the SPDR Select Sector ETFs.
+      why: Sector leadership shows what the market is pricing about the cycle. Cyclicals lead in early or mid expansions, defensives lead in slowdowns.
+      how_to_read: Tech, Discretionary, Financials and Industrials leading is risk-on or growth-optimistic. Utilities, Staples and Health Care leading is defensive or late-cycle. Energy and Materials leading often coincides with inflationary periods.
+    groups:
+      - label: GICS Sectors
+        items:
+          - { t: XLK,  name: Technology }
+          - { t: XLC,  name: Communication Services }
+          - { t: XLY,  name: Consumer Discretionary }
+          - { t: XLF,  name: Financials }
+          - { t: XLI,  name: Industrials }
+          - { t: XLB,  name: Materials }
+          - { t: XLE,  name: Energy }
+          - { t: XLV,  name: Health Care }
+          - { t: XLP,  name: Consumer Staples }
+          - { t: XLU,  name: Utilities }
+          - { t: XLRE, name: Real Estate }
+      - label: Benchmark
+        items:
+          - { t: SPY, name: S&P 500 }
+          - { t: RSP, name: S&P 500 Equal Weight }
+
+  fixed_income:
+    title: Fixed Income Performance
+    about:
+      what: Total returns of bond ETFs across the Treasury curve, credit quality and international markets. Each row also shows trailing-12-month distribution yield and approximate effective duration.
+      why: Bonds show the macro story through two levers. Duration measures sensitivity to interest rates. Spread measures sensitivity to credit risk and growth.
+      how_to_read: Long Treasuries (TLT) outperforming short ones is a bet on falling rates or growth fears. High-yield outperforming Treasuries is risk-on. Duration ≈ % price change for a 1pp rate move (TLT with ~16y duration loses ~16% if long yields rise 1pp). Yields are trailing distribution yields, not yield-to-maturity.
+    groups:
+      - label: US Treasuries
+        items:
+          - { t: BIL, name: T-Bills 1-3M, dur: 0.1 }
+          - { t: SHY, name: Treasury 1-3Y, dur: 1.9 }
+          - { t: IEI, name: Treasury 3-7Y, dur: 4.3 }
+          - { t: IEF, name: Treasury 7-10Y, dur: 7.1 }
+          - { t: TLT, name: Treasury 20Y+, dur: 16.3 }
+          - { t: TIP, name: TIPS (Inflation-Linked), dur: 6.6 }
+      - label: US Investment-Grade Credit
+        items:
+          - { t: MINT, name: Ultra-Short Corp, dur: 0.4 }
+          - { t: VCSH, name: Short-Term Corp, dur: 2.6 }
+          - { t: LQD,  name: IG Corporate, dur: 8.3 }
+          - { t: VCLT, name: Long-Term Corp, dur: 12.9 }
+          - { t: MBB,  name: Agency MBS, dur: 5.8 }
+          - { t: MUB,  name: Municipal Bonds, dur: 6.1 }
+      - label: US High Yield & Loans
+        items:
+          - { t: HYG,  name: High Yield Corp, dur: 3.2 }
+          - { t: JNK,  name: High Yield Bond, dur: 3.3 }
+          - { t: BKLN, name: Senior Loans, dur: 0.3 }
+      - label: International Credit
+        items:
+          - { t: BNDX, name: Intl Aggregate Bond (hedged), dur: 6.7 }
+          - { t: IGOV, name: Intl Treasuries, dur: 8.2 }
+          - { t: EMB,  name: EM Sovereign USD, dur: 6.8 }
+          - { t: EMLC, name: EM Local Currency, dur: 4.9 }
+          - { t: EMHY, name: EM High Yield USD, dur: 4.5 }
+
+  commodities:
+    title: Commodity Performance
+    about:
+      what: Returns of front-month commodity futures across energy, metals and agriculture, plus broad commodity index ETFs.
+      why: Commodities are the purest read on real-economy demand (copper, oil), inflation pressure and supply shocks (weather, geopolitics).
+      how_to_read: Copper and oil rising together is a pro-growth, reflationary signal. Gold rising while copper falls is defensive or a monetary hedge. Front-month continuous futures include roll effects, so long-horizon returns differ from what a futures investor actually earned.
+    groups:
+      - label: Energy
+        items:
+          - { t: CL=F, name: WTI Crude, tag: CL, units: USD/bbl }
+          - { t: BZ=F, name: Brent Crude, tag: BZ, units: USD/bbl }
+          - { t: NG=F, name: Natural Gas, tag: NG, units: USD/MMBtu }
+          - { t: HO=F, name: Heating Oil, tag: HO, units: USD/gal }
+          - { t: RB=F, name: RBOB Gasoline, tag: RB, units: USD/gal }
+      - label: Metals
+        items:
+          - { t: GC=F,  name: Gold, tag: GC, units: USD/oz }
+          - { t: SI=F,  name: Silver, tag: SI, units: USD/oz }
+          - { t: PL=F,  name: Platinum, tag: PL, units: USD/oz }
+          - { t: HG=F,  name: Copper, tag: HG, units: USD/lb }
+          - { t: ALI=F, name: Aluminum, tag: ALI, units: USD/t }
+          - { t: SLX,   name: Steel, tag: "SLX · EQUITIES" }
+      - label: Agricultural
+        items:
+          - { t: ZC=F, name: Corn, tag: ZC, units: USc/bu }
+          - { t: ZW=F, name: Chicago Wheat, tag: ZW, units: USc/bu }
+          - { t: KE=F, name: KC Wheat, tag: KE, units: USc/bu }
+          - { t: ZS=F, name: Soybeans, tag: ZS, units: USc/bu }
+          - { t: ZM=F, name: Soybean Meal, tag: ZM, units: USD/ton }
+          - { t: ZL=F, name: Soybean Oil, tag: ZL, units: USc/lb }
+          - { t: SB=F, name: Sugar, tag: SB, units: USc/lb }
+          - { t: KC=F, name: Coffee, tag: KC, units: USc/lb }
+          - { t: CC=F, name: Cocoa, tag: CC, units: USD/t }
+          - { t: CT=F, name: Cotton, tag: CT, units: USc/lb }
+          - { t: OJ=F, name: Orange Juice, tag: OJ, units: USc/lb }
+          - { t: ZO=F, name: Oats, tag: ZO, units: USc/bu }
+          - { t: ZR=F, name: Rough Rice, tag: ZR, units: USD/cwt }
+      - label: Livestock
+        items:
+          - { t: LE=F, name: Live Cattle, tag: LE, units: USc/lb }
+          - { t: GF=F, name: Feeder Cattle, tag: GF, units: USc/lb }
+          - { t: HE=F, name: Lean Hogs, tag: HE, units: USc/lb }
+      - label: Indices
+        items:
+          - { t: DBC,  name: Broad Commodities, tag: "DBC · FUTURES ETF" }
+          - { t: GSG,  name: S&P GSCI, tag: "GSG · FUTURES ETF" }
+          - { t: BDRY, name: Baltic Dry (Shipping), tag: "BDRY · FUTURES ETF" }
+
+  currencies:
+    title: Currency Performance
+    about:
+      what: Performance of major and emerging-market currencies against the US dollar (positive = the currency strengthened vs USD), plus the Dollar Index and bitcoin.
+      why: The dollar is the world's funding currency. A strong dollar tightens global financial conditions, pressures EM and commodities, and dents US multinational earnings.
+      how_to_read: Broad USD weakness is usually risk-on and good for EM and commodities. JPY and CHF strength often signals risk-off (safe-haven flows, carry unwinds). Differences in rates between countries drive most medium-term FX trends.
+    groups:
+      - label: Dollar
+        items:
+          - { t: DX-Y.NYB, name: US Dollar Index, tag: DXY }
+      - label: Developed Markets (vs USD)
+        items:
+          - { t: EURUSD=X, name: Euro, tag: EUR }
+          - { t: GBPUSD=X, name: British Pound, tag: GBP }
+          - { t: JPY=X,    name: Japanese Yen, tag: JPY, invert: true }
+          - { t: CHF=X,    name: Swiss Franc, tag: CHF, invert: true }
+          - { t: CAD=X,    name: Canadian Dollar, tag: CAD, invert: true }
+          - { t: AUDUSD=X, name: Australian Dollar, tag: AUD }
+          - { t: NZDUSD=X, name: New Zealand Dollar, tag: NZD }
+          - { t: SEK=X,    name: Swedish Krona, tag: SEK, invert: true }
+      - label: Emerging Markets (vs USD)
+        items:
+          - { t: CNY=X, name: Chinese Yuan, tag: CNY, invert: true }
+          - { t: INR=X, name: Indian Rupee, tag: INR, invert: true }
+          - { t: MXN=X, name: Mexican Peso, tag: MXN, invert: true }
+          - { t: BRL=X, name: Brazilian Real, tag: BRL, invert: true }
+          - { t: ZAR=X, name: South African Rand, tag: ZAR, invert: true }
+          - { t: KRW=X, name: Korean Won, tag: KRW, invert: true }
+      - label: Digital
+        items:
+          - { t: BTC-USD, name: Bitcoin, tag: BTC }
