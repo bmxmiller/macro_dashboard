@@ -1,0 +1,24 @@
+# Sentiment section: About texts for CNN Fear & Greed, its components and the VIX term structure.
+# About texts were drafted with AI assistance and reviewed by hand.
+
+fear_greed:
+  about:
+    what: CNN Business's Fear & Greed Index, a 0–100 composite of seven US equity-market indicators. Each one is scored by how far it sits from its own recent average, and the seven scores are averaged with equal weights.
+    why: It condenses momentum, breadth, options, volatility, credit and safe-haven flows into one gauge of whether investors are behaving fearfully or greedily.
+    how_to_read: 0–25 is extreme fear, 25–45 fear, 45–55 neutral, 55–75 greed and 75–100 extreme greed. It works best as a contrarian signal at the extremes. Extreme fear has often occurred near short-term market lows, and extreme greed near tops. The direction of change over a week or a month matters as much as the level.
+
+components:
+  market_momentum_sp500: The S&P 500 compared with its 125-day moving average. Further above the average scores as greed.
+  stock_price_strength: The number of NYSE stocks at 52-week highs compared with those at 52-week lows.
+  stock_price_breadth: The McClellan Volume Summation Index, i.e. volume in rising stocks versus falling stocks.
+  put_call_options: The 5-day average put/call options ratio. More puts (hedging) scores as fear.
+  market_volatility_vix: The VIX compared with its 50-day moving average. A VIX rising above its average scores as fear.
+  junk_bond_demand: The yield spread between junk bonds and investment-grade bonds. Narrower spreads score as greed.
+  safe_haven_demand: The difference between 20-day stock and Treasury bond returns. Stocks outperforming scores as greed.
+
+vix_term:
+  source_url: https://www.cboe.com/tradable_products/vix/term_structure/
+  about:
+    what: The ratio of the VIX (30-day implied volatility of the S&P 500) to the VIX3M (3-month implied volatility), both from Cboe.
+    why: Investors normally pay more for longer-dated protection, so the curve slopes upward (contango). When near-term fear spikes, short-dated volatility jumps above longer-dated volatility and the curve inverts (backwardation).
+    how_to_read: A ratio below ~0.9 is a calm, upward-sloping curve (labelled contango). From 0.95 to 1.0 the curve is nearly flat, a sign of rising stress. Above 1.0 (backwardation) means acute, near-term fear, which historically has been rare and short-lived and has often occurred near market lows. The level of the VIX itself (about 20 is the long-run average) tells you how expensive protection is.

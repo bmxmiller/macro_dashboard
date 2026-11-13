@@ -1,0 +1,87 @@
+# News section: RSS feeds and the keyword rules used to tag headlines.
+#
+# Feeds (checked live 2026-11-13). Official sources come first: on duplicate
+# headlines the first feed wins.
+#   browser: true -> the host rejects plain clients (403), so send browser headers
+#                    (BLS is the opposite: it 403s browser UAs, so it stays false)
+#   tags          -> always applied to items from this feed
+#   require_tags  -> drop items that match no tag rule (filters personal-finance/lifestyle stories)
+# Dropped after testing: finance.yahoo.com/news/rssindex (404), MarketWatch
+# mw_marketpulse and mw_realtimeheadlines (stale since 2025), BLS news_release.rss (404).
+
+window_hours: 72
+max_items: 80
+max_per_feed: 15
+
+feeds:
+  - id: fed
+    source: Federal Reserve
+    url: https://www.federalreserve.gov/feeds/press_all.xml
+    tags: [central-bank]
+  - id: bls_cpi
+    source: BLS
+    url: https://www.bls.gov/feed/cpi.rss
+    tags: [macro]
+  - id: bls_empsit
+    source: BLS
+    url: https://www.bls.gov/feed/empsit.rss
+    tags: [macro]
+  - id: bls_ppi
+    source: BLS
+    url: https://www.bls.gov/feed/ppi.rss
+    tags: [macro]
+  - id: bls_jolts
+    source: BLS
+    url: https://www.bls.gov/feed/jolts.rss
+    tags: [macro]
+  - id: bea
+    source: BEA
+    url: https://apps.bea.gov/rss/rss.xml
+    tags: [macro]
+  - id: boe
+    source: Bank of England
+    url: https://www.bankofengland.co.uk/rss/news
+    browser: true
+    tags: [central-bank, uk]
+  - id: ecb
+    source: ECB
+    url: https://www.ecb.europa.eu/rss/press.html
+    tags: [central-bank]
+  - id: cnbc_economy
+    source: CNBC
+    url: https://www.cnbc.com/id/20910258/device/rss/rss.html
+    browser: true
+    tags: []
+    require_tags: true
+  - id: cnbc_markets
+    source: CNBC
+    url: https://www.cnbc.com/id/10000664/device/rss/rss.html
+    browser: true
+    tags: []
+    require_tags: true
+  - id: marketwatch_top
+    source: MarketWatch
+    url: https://feeds.content.dowjones.io/public/rss/mw_topstories
+    tags: []
+    require_tags: true
+  - id: marketwatch_bulletins
+    source: MarketWatch
+    url: https://feeds.content.dowjones.io/public/rss/mw_bulletins
+    tags: []
+    require_tags: true
+  - id: yahoo
+    source: Yahoo Finance
+    url: https://feeds.finance.yahoo.com/rss/2.0/headline?s=^GSPC,^DJI,^IXIC&region=US&lang=en-US
+    browser: true
+    tags: []
+    require_tags: true
+
+# Case-insensitive whole-word / phrase matches against title + summary.
+tag_rules:
+  rates: [interest rate, interest rates, rate cut, rate cuts, rate hike, rate hikes, yield, yields, treasury, treasuries, bond, bonds, gilt, gilts, bund, bunds, basis points, mortgage rates]
+  equities: [stock, stocks, s&p 500, s&p, nasdaq, dow, equity, equities, shares, earnings, ipo, wall street, russell 2000]
+  fx: [dollar, euro, yen, sterling, pound, currency, currencies, forex, yuan, exchange rate]
+  commodities: [oil, crude, brent, wti, gold, silver, copper, opec, natural gas, commodity, commodities]
+  macro: [inflation, cpi, ppi, pce, gdp, jobs, payrolls, payroll, unemployment, jobless, labor market, labour market, recession, economy, economic, retail sales, tariff, tariffs, consumer prices, trade deficit, wages]
+  central-bank: [fed, federal reserve, fomc, powell, ecb, lagarde, bank of england, boe, mpc, bailey, boj, bank of japan, central bank, monetary policy]
+  uk: [uk, britain, british, sterling, gilt, gilts, bank of england, ftse, london, reeves, ons, chancellor]

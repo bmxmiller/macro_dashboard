@@ -1,0 +1,83 @@
+# CFTC Commitments of Traders: contracts shown in the `positioning` section.
+#
+#   code    CFTC contract market code (cftc_contract_market_code)
+#   report  tff (Traders in Financial Futures -> Leveraged Funds) for financial futures,
+#           disaggregated (-> Managed Money) for physical commodities
+#
+# About texts were drafted with AI assistance and reviewed by hand.
+
+about:
+  what: Net futures positions (long minus short contracts) of speculative traders, from the CFTC's weekly Commitments of Traders report. Financial futures use the Traders in Financial Futures report (Leveraged Funds, i.e. hedge funds and CTAs). Commodities use the Disaggregated report (Managed Money). All figures are futures-only.
+  why: Positioning shows how crowded a trade is. When speculators are already very long or very short, there are fewer new buyers or sellers left to push the price further, and the risk of a sharp reversal rises if the news turns.
+  how_to_read: The 3-year percentile ranks this week's net position against the last three years (100 = most net long). Readings above ~90 or below ~10 mark crowded positioning, which is usually a contrarian warning rather than a timing signal. Positions are as of Tuesday and published on Friday, so they are 3 days old on release.
+
+markets:
+  - id: es
+    name: S&P 500 E-mini
+    code: "13874A"
+    report: tff
+    asset_class: equities
+    about:
+      what: Net position of leveraged funds in CME E-mini S&P 500 futures.
+      why: Shows whether hedge funds and CTAs are using futures to bet on or hedge against US large-cap equities.
+      how_to_read: Leveraged funds are structurally net short here because many of them short futures against long stock portfolios (relative-value and basis trades), while asset managers hold the offsetting longs. Focus on changes and on the percentile rather than the sign. A sharp move towards the most-short end of the range often coincides with washed-out sentiment near equity lows.
+
+  - id: ty
+    name: 10Y T-Note
+    code: "043602"
+    report: tff
+    asset_class: rates
+    about:
+      what: Net position of leveraged funds in CBOT 10-year Treasury note futures.
+      why: Rates futures positioning shows how much leverage sits in the Treasury market, and how exposed it is to forced unwinds.
+      how_to_read: The large net short is mostly the cash-futures basis trade (funds buy cash Treasuries and sell futures to capture a small spread), not a directional bet on higher yields. Record shorts mean more leverage that could unwind violently in a funding squeeze, as in March 2020.
+
+  - id: gold
+    name: Gold
+    code: "088691"
+    report: disaggregated
+    asset_class: commodities
+    about:
+      what: Net position of managed money (hedge funds and CTAs) in COMEX gold futures.
+      why: Speculators are the swing buyers in gold futures, and their flows drive much of the short-term price action.
+      how_to_read: Managed money is normally net long gold. A percentile near 100 means the trade is crowded and vulnerable to a shakeout if real yields or the dollar rise. A low percentile with prices holding up means there is plenty of room for new buying.
+
+  - id: wti
+    name: WTI Crude
+    code: "067651"
+    report: disaggregated
+    asset_class: commodities
+    about:
+      what: Net position of managed money in NYMEX WTI light sweet crude oil futures (physically delivered contract).
+      why: Shows speculative appetite for oil, which is driven by growth expectations, OPEC+ supply policy and geopolitics.
+      how_to_read: Very low net length has often marked capitulation near oil price lows, while extreme length leaves prices exposed to bad news on demand. Producers and swap dealers hedge in the opposite direction, so speculative extremes are partly offset by commercial hedging.
+
+  - id: eur
+    name: Euro FX
+    code: "099741"
+    report: tff
+    asset_class: fx
+    about:
+      what: Net position of leveraged funds in CME euro futures (EUR/USD).
+      why: FX futures positioning is one of the few public windows into speculative currency bets.
+      how_to_read: Net long means funds are betting on a stronger euro against the dollar. Extremes tend to occur near turning points in the EUR/USD trend, especially when rate differentials start to move the other way. Note that the classic "IMM" figure quoted in the press uses the legacy non-commercial category, which differs slightly.
+
+  - id: jpy
+    name: Japanese Yen
+    code: "097741"
+    report: tff
+    asset_class: fx
+    about:
+      what: Net position of leveraged funds in CME Japanese yen futures (JPY/USD).
+      why: The yen is the main funding currency for global carry trades, so speculative yen shorts measure how much carry is in the system.
+      how_to_read: A large net short means a crowded carry trade (borrowing cheap yen to buy higher-yielding assets). Rapid short covering, as in August 2024, tends to coincide with global risk-off episodes and a sharp yen rally.
+
+  - id: btc
+    name: Bitcoin (CME)
+    code: "133741"
+    report: tff
+    asset_class: crypto
+    about:
+      what: Net position of leveraged funds in CME bitcoin futures (5 BTC per contract).
+      why: Shows how institutional speculators are positioned in regulated bitcoin futures.
+      how_to_read: Leveraged funds are usually net short because they sell futures against long spot bitcoin or ETF holdings to earn the futures premium (a cash-and-carry basis trade). A shrinking short often means the basis has compressed, not that funds have turned bearish.
