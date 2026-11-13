@@ -16,3 +16,18 @@ How this project was built with an AI coding agent (Claude Code). It records wha
 - Built the metric registry (YAML as single source of truth, with About texts drafted by AI and reviewed), FRED/Yahoo/FOMC fetchers, return transforms, pydantic schemas and the build orchestrator.
 - **Incident: FRED stalls.** The pipeline hung for minutes. Diagnosis: single `curl` calls were instant, but Python calls timed out. Isolated variables one at a time and found that FRED silently stalls requests with a browser-like User-Agent (and then rate-limits bulk keyless CSV downloads). Fix: honest UA, sequential keyless fallback, and the free FRED API key as the primary path. Lesson recorded in `CLAUDE.md` so future agents don't reintroduce it.
 - Front-end foundations: design tokens (dark/light, user accent, diverging gain/loss palette with a colour-blind-safe option), `<Panel>` shell (About popover, PNG export, hide, stale badge) and a reference `PerformancePanel`.
+
+### Session 1 (continued): parallel agents
+**Orchestration.** After the shared contracts were committed, three background subagents ran in parallel, each in its own git worktree and branch, on disjoint files:
+
+| Agent | Branch | Delivered | Notable problems it solved |
+|---|---|---|---|
+| Front-end | `agent/frontend` | Index Snapshot, Economic Indicators (ⓘ per metric), Yield Curve, Calendar, History modal with NBER recession shading | No FRED key, so it built a schema-validated synthetic fixture generator (never committed). The bundle hit 828 kB, so ECharts was tree-shaken and lazy-loaded (main bundle 86 kB gzipped). Charts read theme colours one frame late, which was fixed. |
+| Pipeline | `agent/pipeline` | UK macro (BoE + ONS), CFTC COT positioning, CNN Fear & Greed + VIX term structure, RSS news (13 feeds), earnings calendar | Probed every endpoint: BoE/CNN/CNBC/Yahoo reject plain UAs while BLS rejects browser UAs, so headers are set per host. No BoE 2y gilt series exists, so it is derived from the BoE yield-curve spreadsheets with an incremental history cache. ONS GDP first estimates live in a different dataset, so both are fetched and the newer one wins. |
+| Infra/tests | `agent/infra` | 50 offline pytest tests, CI, scheduled data-update workflow, Pages deploy, beginner setup guide | `workflow_run` chaining, because commits pushed with `GITHUB_TOKEN` don't trigger other workflows. Workflow inputs go through env vars to prevent shell injection. Validated with actionlint. |
+
+**Incident: worktree isolation refused to start.** The harness rejected its own worktrees because of a Windows drive-letter case mismatch (`c:\` vs `C:/`). Workaround: created the worktrees manually with `git worktree add` and pointed each agent at its own absolute path. Same isolation, set up by hand.
+
+**Guardrail in action.** While fixing a bug the pipeline agent flagged (weekly history labelled with future Sundays), the post-edit hook ran pytest between the code edit and the test edit and fed the failure back automatically. That shows a broken intermediate state is caught immediately.
+
+**Merge and verify.** Merged in order (infra → frontend → pipeline) with no conflicts. Verified with 76/76 tests, typecheck + production build, a live pipeline run (7 sections OK) and a browser check of the merged dashboard. The browser check found one UX bug (a missing JSON file showed a raw parse error, because the SPA fallback serves index.html), which was fixed. An independent read-only reviewer agent then audited the merged code.
