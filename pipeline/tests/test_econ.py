@@ -151,5 +151,5 @@ def test_history_downsamples_daily_to_weekly():
     h = econ.history(s, max_points=600)
     assert 100 < len(h) < 600
     dates = pd.to_datetime([d for d, _ in h])
-    assert all(d.day_of_week == 6 for d in dates)  # week-ending (Sunday) labels
-    assert h[-1][1] == 999.0  # latest value preserved
+    assert set(dates).issubset(set(s.index))  # labels are real observation dates, never future
+    assert h[-1] == [s.index[-1].strftime("%Y-%m-%d"), 999.0]  # latest observation preserved

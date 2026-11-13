@@ -72,6 +72,8 @@ def percentile(s: pd.Series, years: int = 10) -> float | None:
 
 def history(s: pd.Series, years: int = 25, max_points: int = 600) -> list[list]:
     s = s.dropna().loc[lambda x: x.index >= x.index[-1] - pd.DateOffset(years=years)]
-    if len(s) > max_points:  # downsample daily series to weekly
-        s = s.resample("W").last().dropna()
+    if len(s) > max_points:
+        # Downsample daily → weekly, keeping each week's last *actual* observation
+        # (resample("W") would label points with a week-ending Sunday, possibly in the future).
+        s = s[~s.index.to_period("W").duplicated(keep="last")]
     return [[d.strftime("%Y-%m-%d"), round(float(v), 4)] for d, v in s.items()]
