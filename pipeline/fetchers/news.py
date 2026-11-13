@@ -68,9 +68,10 @@ def parse_feed(content: bytes | str, feed: dict, compiled: dict[str, re.Pattern]
     items = []
     for e in parsed.entries:
         title = strip_html(e.get("title"), limit=300)
-        url = e.get("link")
+        url = (e.get("link") or "").strip()
         ts = _entry_time(e)
-        if not title or not url or ts is None:
+        # Third-party feed content is untrusted: only http(s) links (no javascript:/data:).
+        if not title or not url.lower().startswith(("http://", "https://")) or ts is None:
             continue
         summary = strip_html(e.get("summary") or e.get("description"))
         if normalize_title(summary) == normalize_title(title):

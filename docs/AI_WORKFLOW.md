@@ -31,3 +31,11 @@ How this project was built with an AI coding agent (Claude Code). It records wha
 **Guardrail in action.** While fixing a bug the pipeline agent flagged (weekly history labelled with future Sundays), the post-edit hook ran pytest between the code edit and the test edit and fed the failure back automatically. That shows a broken intermediate state is caught immediately.
 
 **Merge and verify.** Merged in order (infra → frontend → pipeline) with no conflicts. Verified with 76/76 tests, typecheck + production build, a live pipeline run (7 sections OK) and a browser check of the merged dashboard. The browser check found one UX bug (a missing JSON file showed a raw parse error, because the SPA fallback serves index.html), which was fixed. An independent read-only reviewer agent then audited the merged code.
+
+### Independent review → fixes
+A read-only reviewer agent audited the merged code and reported 14 verified findings. Both high-severity issues were fixed the same session, each with a regression test (`pipeline/tests/test_review_fixes.py`):
+- **Secret leak (high):** `requests` embeds the full URL, including `api_key`, in error text, which flowed into the public `meta.json`. Fix: a `redact()` helper and a logging filter. Only redacted errors are stored. The FRED calendar call now degrades instead of failing.
+- **Gap-blind YoY (high):** `pct_change(12)` counted rows, not months. A single unpublished month (e.g. the Oct-2025 CPI during the shutdown) turned YoY into a 13-month change for a year. Fix: `asfreq("MS"/"QS")` re-inserts gaps.
+- Also fixed: empty sections marked "ok" (markets/yield curve now fail and keep last good data), FX quote direction labelled, calendar time sort, `http(s)`-only news links, registry-loading tests in CI, and three factual corrections in About texts (Sahm 2024 false positive, CPI-U vs CPI-W indexation, VIX term-structure thresholds).
+
+**Open follow-ups** (accepted, not yet done): stale-by-age detection in the UI; LFS period labels (Jun–Aug shown as Jul); re-bootstrap 2Y gilt history; "previous" for step series like policy rates; robust z-scores excluding the 2020 COVID outliers; pin Python deps and gate deploy on CI.

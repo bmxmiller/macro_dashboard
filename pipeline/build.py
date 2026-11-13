@@ -21,6 +21,7 @@ import pandas as pd
 import yaml
 
 from .fetchers import boe, cftc, cnn, earnings, fomc, fred, news, ons, yahoo
+from .fetchers.http import RedactingFilter, redact
 from .schemas import UK, Calendar, Earnings, Economy, Markets, News, Positioning, Sentiment, YieldCurve
 from .transforms import econ
 from .transforms.returns import PERIODS, period_returns, sparkline, trailing_yield
@@ -95,7 +96,9 @@ def build_markets() -> Markets:
                     "ticker": t,
                     "name": it["name"],
                     "tag": it.get("tag", t),
-                    "units": it.get("units"),
+                    # Inverted FX: returns are foreign-ccy vs USD, but the price stays the
+                    # market-convention quote (USD/JPY), so label it explicitly.
+                    "units": f"{it.get('tag', t)} per USD" if it.get("invert") else it.get("units"),
                     "price": round(float(cl.iloc[-1]), 4) if not cl.empty else None,
                     "asof": cl.index[-1].strftime("%Y-%m-%d") if not cl.empty else None,
                     "mode": mode,
@@ -109,6 +112,10 @@ def build_markets() -> Markets:
         panels[pid] = {"id": pid, "title": p["title"], "about": p["about"], "groups": groups}
     if missing:
         log.warning("no price data for: %s", ", ".join(missing))
+    if len(missing) > 0.25 * len(set(tickers)):
+        # Fail the section so the last good markets.json is kept and flagged stale,
+        # instead of publishing a mostly-empty file marked ok.
+        raise RuntimeError(f"price data missing for {len(missing)} of {len(set(tickers))} tickers")
     return Markets(generated_at=now_iso(), periods=PERIODS, panels=panels)
 
 
@@ -216,6 +223,9 @@ def build_yield_curve() -> YieldCurve:
             "history": econ.history(s, years=6),
             "data_url": fred.series_url(sp["series"]),
         })
+    got = sum(p["now"] is not None for p in points)
+    if got < len(points) // 2:
+        raise RuntimeError(f"only {got}/{len(points)} Treasury tenors fetched; keeping previous curve")
     return YieldCurve(
         generated_at=now_iso(), asof=asof.strftime("%Y-%m-%d") if asof is not None else None,
         about={k: yc["about"][k] for k in ("what", "why", "how_to_read")},
@@ -238,6 +248,18 @@ RELEASE_META = {  # metric id → (display name, ET release time, importance)
     "indpro_yoy": ("Industrial Production", "9:15 AM ET", "low"),
     "housing_starts": ("Housing Starts", "8:30 AM ET", "low"),
 }
+
+
+def _minutes(t: str | None) -> int:
+    """'8:30 AM ET' → 510. Sorting the raw strings would put 10:00 before 8:30."""
+    if not t:
+        return 24 * 60
+    try:
+        hm, ampm = t.split()[:2]
+        h, m = (int(x) for x in hm.split(":"))
+        return (h % 12 + (12 if ampm.upper() == "PM" else 0)) * 60 + m
+    except ValueError:
+        return 24 * 60
 
 
 def _fmt(m: dict) -> str:
@@ -279,7 +301,13 @@ def build_calendar(economy: Economy | None) -> Calendar:
             except Exception as e:  # noqa: BLE001
                 log.warning("release lookup %s failed: %s", mid, e)
         seen = set()
-        for rd in fred.upcoming_release_dates(days_ahead=45):
+        try:
+            release_dates = fred.upcoming_release_dates(days_ahead=45)
+            complete = True
+        except Exception as e:  # noqa: BLE001 - degrade to FOMC-only rather than fail
+            log.warning("FRED release calendar failed: %s", redact(str(e)))
+            release_dates, note = [], "Release dates temporarily unavailable; showing FOMC only."
+        for rd in release_dates:
             mid = rel_to_metric.get(rd["release_id"])
             if not mid or rd["date"] < today or (mid, rd["date"]) in seen:
                 continue
@@ -293,11 +321,10 @@ def build_calendar(economy: Economy | None) -> Calendar:
                 "last_label": m["name"].upper() if m else None,
                 "source_url": reg[mid]["source_url"],
             })
-        complete = True
     else:
         note = "Set FRED_API_KEY to include data-release dates (CPI, jobs, GDP…). Showing FOMC only."
 
-    events.sort(key=lambda e: (e["date"], e["time"] or ""))
+    events.sort(key=lambda e: (e["date"], _minutes(e["time"])))
     return Calendar(generated_at=now_iso(), complete=complete, note=note, events=events)
 
 
@@ -534,6 +561,8 @@ def main(argv=None) -> int:
     args = ap.parse_args(argv)
     load_dotenv()
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
+    for h in logging.getLogger().handlers:  # urllib3 retry warnings include full URLs
+        h.addFilter(RedactingFilter())
 
     sections = args.only or SECTIONS
     meta_path = OUT / "meta.json"
@@ -560,10 +589,12 @@ def main(argv=None) -> int:
             meta["sections"][name] = {"ok": True, "updated_at": now_iso()}
         except Exception as e:  # noqa: BLE001
             status_ok = False
-            log.error("section %s failed: %s", name, e)
-            traceback.print_exc()
+            err = redact(f"{type(e).__name__}: {e}")
+            log.error("section %s failed: %s", name, err)
+            log.debug(redact(traceback.format_exc()))
             prev = meta["sections"].get(name, {})
-            meta["sections"][name] = {**prev, "ok": False, "error": str(e)[:300], "failed_at": now_iso()}
+            # meta.json is PUBLIC (committed + deployed): only ever store redacted text.
+            meta["sections"][name] = {**prev, "ok": False, "error": err[:300], "failed_at": now_iso()}
 
     meta["generated_at"] = now_iso()
     write_json("meta.json", meta)

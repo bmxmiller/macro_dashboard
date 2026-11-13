@@ -44,7 +44,7 @@ metrics:
     source_url: https://www.bls.gov/cpi/
     about:
       what: Year-over-year change in the Consumer Price Index for all urban consumers, the headline measure of US inflation published monthly by the BLS.
-      why: Headline inflation drives real wages, consumer sentiment and political pressure on the Fed. It also sets the inflation adjustment for TIPS and Social Security.
+      why: Headline inflation drives real wages, consumer sentiment and political pressure on the Fed. Close cousins of this index drive real-world indexation. TIPS principal is adjusted with non-seasonally-adjusted CPI-U. Social Security COLAs use CPI-W (urban wage earners).
       how_to_read: The Fed's target is about 2% (on PCE, which usually runs ~0.3–0.5pp below CPI). Readings above 3% and rising point to tighter policy, which is bearish for duration. Falling readings open the door to rate cuts. Food and energy make the headline number volatile, so check it against Core CPI.
 
   - id: core_cpi_yoy
@@ -157,7 +157,7 @@ metrics:
     source_url: https://fred.stlouisfed.org/series/SAHMREALTIME
     about:
       what: The 3-month average unemployment rate minus its low over the prior 12 months (Claudia Sahm's real-time recession indicator).
-      why: Historically, every time it crossed 0.50 the US was already in, or entering, a recession. It is a simple, timely and widely watched rule.
+      why: Before 2024, every time it crossed 0.50 the US was already in, or entering, a recession. It triggered in August 2024 without a recession following (largely because labour supply grew), which shows its limits. It is still a simple, timely and widely watched rule.
       how_to_read: Below 0.3 is benign. 0.3–0.5 is a warning zone. At or above 0.50 the rule is triggered. It can give false positives when unemployment rises because labour supply grows (immigration) rather than because of layoffs.
 
   - id: claims

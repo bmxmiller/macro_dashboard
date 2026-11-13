@@ -10,10 +10,13 @@ YOY_PERIODS = {"monthly": 12, "quarterly": 4}
 
 def to_regular(s: pd.Series, frequency: str) -> pd.Series:
     """Align observations to a regular period so pct_change(n) means what it says."""
+    # asfreq re-inserts missing periods as NaN, so pct_change(12) always spans 12
+    # *months*, not 12 rows. (Without it, a skipped print, e.g. the Oct-2025 CPI
+    # not published during the shutdown, silently turns YoY into a 13-month change.)
     if frequency == "monthly":
-        return s.groupby(s.index.to_period("M")).last().to_timestamp()
+        return s.groupby(s.index.to_period("M")).last().to_timestamp().asfreq("MS")
     if frequency == "quarterly":
-        return s.groupby(s.index.to_period("Q")).last().to_timestamp()
+        return s.groupby(s.index.to_period("Q")).last().to_timestamp().asfreq("QS")
     return s
 
 

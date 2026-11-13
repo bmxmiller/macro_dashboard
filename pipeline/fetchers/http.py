@@ -1,6 +1,9 @@
 """Shared HTTP session with retries and a polite, generic User-Agent."""
 from __future__ import annotations
 
+import logging
+import re
+
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
@@ -19,6 +22,23 @@ def session() -> requests.Session:
         s.headers["User-Agent"] = "macro-dashboard/0.1 python-requests"
         _session = s
     return _session
+
+
+_SECRET_PARAM = re.compile(r"((?:api_key|apikey|key|token)=)[^&\s'\"]+", re.IGNORECASE)
+
+
+def redact(text: str) -> str:
+    """Strip secret query parameters (e.g. FRED api_key) from URLs inside messages.
+    requests embeds the full URL in HTTPError/RetryError text, and those messages
+    end up in logs and in the public meta.json."""
+    return _SECRET_PARAM.sub(r"\1***", text)
+
+
+class RedactingFilter(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        record.msg = redact(record.getMessage())
+        record.args = ()
+        return True
 
 
 def get(url: str, **kw) -> requests.Response:
