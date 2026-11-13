@@ -1,0 +1,76 @@
+# Earnings section: the ~60 largest S&P 500 companies by market cap (hand-maintained,
+# reviewed 2026-11; one share class per company). Yahoo tickers (BRK-B, not BRK.B).
+
+window_days: 14
+throttle_seconds: 0.4
+
+about:
+  what: Scheduled quarterly earnings reports over the next two weeks for the largest S&P 500 companies, with the consensus EPS estimate and the EPS reported for the same quarter a year earlier.
+  why: The largest companies make up most of the index's weight, so their results (and especially their guidance) can move the whole market, sector ETFs and volatility.
+  how_to_read: BMO means before the market opens and AMC means after the close, so the price reaction comes on the same day or the next session respectively. Comparing the estimate with the prior-year EPS shows the growth analysts already expect. Around three quarters of S&P 500 companies typically beat consensus, so the size of the beat and the guidance matter more than a beat itself. Dates come from Yahoo Finance and occasionally shift if a company reschedules.
+
+companies:
+  - {t: NVDA, name: NVIDIA}
+  - {t: AAPL, name: Apple}
+  - {t: MSFT, name: Microsoft}
+  - {t: AMZN, name: Amazon}
+  - {t: GOOGL, name: Alphabet}
+  - {t: META, name: Meta Platforms}
+  - {t: AVGO, name: Broadcom}
+  - {t: TSLA, name: Tesla}
+  - {t: BRK-B, name: Berkshire Hathaway}
+  - {t: JPM, name: JPMorgan Chase}
+  - {t: WMT, name: Walmart}
+  - {t: LLY, name: Eli Lilly}
+  - {t: ORCL, name: Oracle}
+  - {t: V, name: Visa}
+  - {t: MA, name: Mastercard}
+  - {t: NFLX, name: Netflix}
+  - {t: XOM, name: Exxon Mobil}
+  - {t: COST, name: Costco}
+  - {t: JNJ, name: Johnson & Johnson}
+  - {t: HD, name: Home Depot}
+  - {t: PLTR, name: Palantir}
+  - {t: PG, name: Procter & Gamble}
+  - {t: ABBV, name: AbbVie}
+  - {t: BAC, name: Bank of America}
+  - {t: AMD, name: AMD}
+  - {t: CVX, name: Chevron}
+  - {t: KO, name: Coca-Cola}
+  - {t: UNH, name: UnitedHealth}
+  - {t: GE, name: GE Aerospace}
+  - {t: CSCO, name: Cisco}
+  - {t: TMUS, name: T-Mobile US}
+  - {t: WFC, name: Wells Fargo}
+  - {t: IBM, name: IBM}
+  - {t: PM, name: Philip Morris}
+  - {t: MS, name: Morgan Stanley}
+  - {t: GS, name: Goldman Sachs}
+  - {t: CRM, name: Salesforce}
+  - {t: ABT, name: Abbott}
+  - {t: MU, name: Micron}
+  - {t: AXP, name: American Express}
+  - {t: MCD, name: McDonald's}
+  - {t: LIN, name: Linde}
+  - {t: MRK, name: Merck}
+  - {t: RTX, name: RTX}
+  - {t: CAT, name: Caterpillar}
+  - {t: PEP, name: PepsiCo}
+  - {t: T, name: AT&T}
+  - {t: DIS, name: Disney}
+  - {t: UBER, name: Uber}
+  - {t: INTU, name: Intuit}
+  - {t: NOW, name: ServiceNow}
+  - {t: TMO, name: Thermo Fisher}
+  - {t: C, name: Citigroup}
+  - {t: VZ, name: Verizon}
+  - {t: ISRG, name: Intuitive Surgical}
+  - {t: BKNG, name: Booking Holdings}
+  - {t: QCOM, name: Qualcomm}
+  - {t: AMAT, name: Applied Materials}
+  - {t: BLK, name: BlackRock}
+  - {t: SCHW, name: Charles Schwab}
+  - {t: TXN, name: Texas Instruments}
+  - {t: ADBE, name: Adobe}
+  - {t: LRCX, name: Lam Research}
+  - {t: ANET, name: Arista Networks}

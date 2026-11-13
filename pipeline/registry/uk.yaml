@@ -1,0 +1,192 @@
+# UK macro registry: every metric in the `uk` section.
+#
+# Same fields as metrics.yaml, plus a source-specific locator:
+#   source: ons     -> uri: ONS time-series path (JSON at https://www.ons.gov.uk<uri>/data);
+#                      alt_uris: same CDID in other datasets, merged (newest vintage wins)
+#   source: boe     -> series: Bank of England IADB series code
+#   source: boe_glc -> tenor: maturity in years on the BoE nominal spot (zero-coupon) curve
+#   source: yahoo   -> series: Yahoo ticker; fallback_boe: IADB code used if Yahoo fails
+# ONS series are already rates (%), so their transform is `level`.
+#
+# About texts were drafted with AI assistance and reviewed by hand.
+
+groups:
+  - id: inflation
+    label: Inflation
+  - id: labour
+    label: Labour Market
+  - id: growth
+    label: Growth
+  - id: rates
+    label: Rates & Gilts
+  - id: fx
+    label: Sterling
+
+metrics:
+  # ── Inflation ─────────────────────────────────────────────────────────────
+  - id: uk_cpi_yoy
+    group: inflation
+    name: CPI YoY
+    source: ons
+    uri: /economy/inflationandpriceindices/timeseries/d7g7/mm23
+    transform: level
+    units: "%"
+    decimals: 1
+    good: down
+    frequency: monthly
+    source_url: https://www.ons.gov.uk/economy/inflationandpriceindices/bulletins/consumerpriceinflation/latest
+    about:
+      what: The 12-month change in the UK Consumer Prices Index, published monthly by the Office for National Statistics (ONS) around the middle of the following month.
+      why: CPI is the measure the Bank of England's 2% inflation target refers to. The target is set by the Chancellor, and the Monetary Policy Committee (MPC) sets Bank Rate to hit it over the medium term.
+      how_to_read: Compare it with 2%. If CPI is more than 1 percentage point away from target in either direction, the Governor must write an open letter to the Chancellor explaining why. Energy prices (via the Ofgem price cap, reset quarterly) and food make the headline volatile, so check core CPI and services inflation too.
+
+  - id: uk_core_cpi_yoy
+    group: inflation
+    name: Core CPI YoY
+    source: ons
+    uri: /economy/inflationandpriceindices/timeseries/dko8/mm23
+    transform: level
+    units: "%"
+    decimals: 1
+    good: down
+    frequency: monthly
+    source_url: https://www.ons.gov.uk/economy/inflationandpriceindices/bulletins/consumerpriceinflation/latest
+    about:
+      what: CPI excluding energy, food, alcoholic beverages and tobacco, 12-month rate (ONS series DKO8).
+      why: Removing the most volatile items gives a better read on domestically generated, persistent inflation, which is what Bank Rate can actually influence.
+      how_to_read: Core above headline usually means inflation is sticky and services-driven. The MPC pays particular attention to services CPI and wage growth as signs of persistence. Core settling back towards 2–2.5% is what allows sustained rate cuts.
+
+  # ── Labour ────────────────────────────────────────────────────────────────
+  - id: uk_unemployment
+    group: labour
+    name: Unemployment Rate
+    source: ons
+    uri: /employmentandlabourmarket/peoplenotinwork/unemployment/timeseries/mgsx/lms
+    transform: level
+    units: "%"
+    decimals: 1
+    good: down
+    frequency: monthly
+    source_url: https://www.ons.gov.uk/employmentandlabourmarket/peoplenotinwork/unemployment
+    about:
+      what: The share of the economically active population aged 16+ who are unemployed, from the Labour Force Survey (LFS). Each reading is a rolling three-month average, so the month shown is the end of that window.
+      why: Labour-market slack drives wage growth, which the MPC sees as a key source of persistent services inflation. Rising unemployment is also the clearest sign that a slowdown is turning into a recession.
+      how_to_read: A steady rise of half a point or more from the cycle low is a warning sign. Treat month-to-month moves with caution, because LFS response rates have been low since 2023 and the ONS flags the estimates as less reliable. Cross-check with payrolled employees (PAYE RTI) and vacancies.
+
+  - id: uk_regular_pay
+    group: labour
+    name: Regular Pay Growth
+    source: ons
+    uri: /employmentandlabourmarket/peopleinwork/earningsandworkinghours/timeseries/kai9/lms
+    transform: level
+    units: "%"
+    decimals: 1
+    good: neutral
+    frequency: monthly
+    source_url: https://www.ons.gov.uk/employmentandlabourmarket/peopleinwork/earningsandworkinghours
+    about:
+      what: Average Weekly Earnings, whole-economy regular pay (excluding bonuses and arrears), year-on-year growth of the three-month average.
+      why: Wages are the main cost for service-sector firms, so pay growth feeds directly into services inflation. The MPC watches this (and private-sector regular pay in particular) as closely as CPI itself.
+      how_to_read: With productivity growth of around 1%, pay growth of roughly 3–3.5% is consistent with the 2% inflation target. Readings well above that keep the MPC cautious about cutting. Real pay growth (pay minus CPI) shows whether households' spending power is improving.
+
+  # ── Growth ────────────────────────────────────────────────────────────────
+  - id: uk_gdp_qoq
+    group: growth
+    name: GDP Growth QoQ
+    source: ons
+    uri: /economy/grossdomesticproductgdp/timeseries/ihyq/qna
+    alt_uris: [/economy/grossdomesticproductgdp/timeseries/ihyq/pn2]  # first estimate lands in PN2 before QNA
+    transform: level
+    units: "%"
+    decimals: 1
+    good: up
+    frequency: quarterly
+    source_url: https://www.ons.gov.uk/economy/grossdomesticproductgdp
+    about:
+      what: Quarter-on-quarter growth in real (chained volume measure) UK GDP, seasonally adjusted. The ONS publishes a first estimate about six weeks after the quarter ends, and revises it later.
+      why: GDP is the broadest measure of economic activity. Two consecutive negative quarters is the common definition of a technical recession.
+      how_to_read: UK trend growth is roughly 0.3–0.4% a quarter (about 1.5% a year). Persistently weaker growth widens spare capacity, which eases inflation pressure and supports rate cuts. Early estimates are often revised by 0.1–0.2pp, so do not over-read small moves.
+
+  - id: uk_gdp_yoy
+    group: growth
+    name: GDP Growth YoY
+    source: ons
+    uri: /economy/grossdomesticproductgdp/timeseries/ihyr/qna
+    alt_uris: [/economy/grossdomesticproductgdp/timeseries/ihyr/pn2]  # first estimate lands in PN2 before QNA
+    transform: level
+    units: "%"
+    decimals: 1
+    good: up
+    frequency: quarterly
+    source_url: https://www.ons.gov.uk/economy/grossdomesticproductgdp
+    about:
+      what: Real GDP growth compared with the same quarter a year earlier (chained volume measure, seasonally adjusted).
+      why: The annual rate smooths out quarter-to-quarter noise (strikes, weather, bank-holiday timing) and gives a cleaner read of the underlying trend.
+      how_to_read: Around 1–1.5% is close to the UK's estimated potential growth. Below 0.5% means the economy is roughly stagnating. A negative annual rate almost always coincides with a recession.
+
+  # ── Rates & gilts ─────────────────────────────────────────────────────────
+  - id: uk_bank_rate
+    group: rates
+    name: Bank Rate
+    source: boe
+    series: IUDBEDR
+    transform: level
+    units: "%"
+    decimals: 2
+    good: neutral
+    frequency: daily
+    source_url: https://www.bankofengland.co.uk/monetary-policy/the-interest-rate-bank-rate
+    about:
+      what: The Bank of England's official policy rate, paid on reserves that commercial banks hold at the Bank. The nine-member Monetary Policy Committee (MPC) sets it at eight scheduled meetings a year.
+      why: Bank Rate anchors short-term sterling interest rates, from mortgages and savings accounts to the pound itself. It is the main tool the MPC uses to bring CPI inflation back to the 2% target.
+      how_to_read: Compare it with CPI to get the real policy rate. A real rate well above 0 is restrictive and below 0 is accommodative. Changes usually come in 25bp steps. The MPC's vote split (e.g. 5–4) is often a better guide to the next move than the decision itself.
+
+  - id: uk_gilt_2y
+    group: rates
+    name: 2Y Gilt Yield
+    source: boe_glc
+    tenor: 2
+    transform: level
+    units: "%"
+    decimals: 2
+    good: neutral
+    frequency: daily
+    source_url: https://www.bankofengland.co.uk/statistics/yield-curves
+    about:
+      what: The 2-year nominal zero-coupon (spot) gilt yield from the Bank of England's fitted government yield curve.
+      why: Short-dated gilts trade almost entirely on where markets expect Bank Rate to go over the next two years, so this is the cleanest market read of the MPC's future path.
+      how_to_read: A 2-year yield well below Bank Rate means markets expect cuts, and one above it means hikes. Big moves on CPI, labour-market or MPC days show how surprised investors were. The BoE publishes its curve with a lag of about one business day.
+
+  - id: uk_gilt_10y
+    group: rates
+    name: 10Y Gilt Yield
+    source: boe
+    series: IUDMNZC
+    transform: level
+    units: "%"
+    decimals: 2
+    good: neutral
+    frequency: daily
+    source_url: https://www.bankofengland.co.uk/statistics/yield-curves
+    about:
+      what: The 10-year nominal zero-coupon (spot) gilt yield from the Bank of England's fitted yield curve (IADB series IUDMNZC).
+      why: The 10-year gilt is the benchmark for UK long-term borrowing costs, including government debt interest and longer-term fixed mortgages. It reflects expected policy rates plus a term premium for inflation and fiscal risk.
+      how_to_read: A 10-year yield rising faster than the 2-year (a steepening curve) often reflects fiscal or inflation worries rather than BoE policy, as in the 2022 mini-budget crisis. Compare it with US Treasuries, because gilts tend to move with global yields.
+
+  # ── Sterling ──────────────────────────────────────────────────────────────
+  - id: uk_gbpusd
+    group: fx
+    name: GBP/USD
+    source: yahoo
+    series: GBPUSD=X
+    fallback_boe: XUDLUSS
+    transform: level
+    units: ""
+    decimals: 4
+    good: neutral
+    frequency: daily
+    source_url: https://www.bankofengland.co.uk/statistics/exchange-rates
+    about:
+      what: The exchange rate of the pound against the US dollar (known as "cable"), i.e. how many dollars one pound buys.
+      why: Sterling affects UK import prices and therefore inflation, and it shows how markets judge UK growth and policy relative to the US.
+      how_to_read: A rising rate means a stronger pound. Moves are driven largely by the gap between UK and US rate expectations (compare the 2-year gilt with the 2-year Treasury). Sharp falls alongside rising gilt yields are a warning sign of a UK-specific confidence problem rather than a normal policy story.

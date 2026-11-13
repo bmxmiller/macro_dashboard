@@ -26,3 +26,18 @@ def get(url: str, **kw) -> requests.Response:
     r = session().get(url, **kw)
     r.raise_for_status()
     return r
+
+
+# Some public hosts (BoE, CNN, CNBC, Yahoo RSS) reject non-browser clients.
+# Pass these per request (``get(url, headers=browser_headers())``); never change
+# the session default, because FRED/BLS stall or block browser-like UAs.
+_BROWSER_UA = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/124.0 Safari/537.36"
+)
+
+
+def browser_headers(**extra: str) -> dict[str, str]:
+    h = {"User-Agent": _BROWSER_UA, "Accept": "*/*", "Accept-Language": "en-GB,en;q=0.9"}
+    h.update(extra)
+    return h

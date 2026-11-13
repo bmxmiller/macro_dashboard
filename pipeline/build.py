@@ -12,6 +12,7 @@ import argparse
 import json
 import logging
 import sys
+import time
 import traceback
 from datetime import date, datetime, timezone
 from pathlib import Path
@@ -19,8 +20,8 @@ from pathlib import Path
 import pandas as pd
 import yaml
 
-from .fetchers import fomc, fred, yahoo
-from .schemas import Calendar, Economy, Markets, YieldCurve
+from .fetchers import boe, cftc, cnn, earnings, fomc, fred, news, ons, yahoo
+from .schemas import UK, Calendar, Earnings, Economy, Markets, News, Positioning, Sentiment, YieldCurve
 from .transforms import econ
 from .transforms.returns import PERIODS, period_returns, sparkline, trailing_yield
 
@@ -300,16 +301,241 @@ def build_calendar(economy: Economy | None) -> Calendar:
     return Calendar(generated_at=now_iso(), complete=complete, note=note, events=events)
 
 
+# ── UK ─────────────────────────────────────────────────────────────────────
+
+def _metric_row(m: dict, s: pd.Series, data_url: str) -> dict:
+    """Same row shape as build_economy() so the front-end can reuse the indicator row."""
+    last_d = s.index[-1]
+    ya = s.loc[:last_d - pd.DateOffset(years=1)]
+    return {
+        "id": m["id"], "group": m["group"], "name": m["name"], "units": m["units"],
+        "decimals": m["decimals"], "good": m["good"], "frequency": m["frequency"],
+        "value": round(float(s.iloc[-1]), 4),
+        "date": last_d.strftime("%Y-%m-%d"),
+        "period_label": econ.period_label(last_d, m["frequency"]),
+        "prev": round(float(s.iloc[-2]), 4) if len(s) > 1 else None,
+        "change": round(float(s.iloc[-1] - s.iloc[-2]), 4) if len(s) > 1 else None,
+        "year_ago": round(float(ya.iloc[-1]), 4) if not ya.empty else None,
+        "zscore": econ.zscore(s),
+        "percentile": econ.percentile(s),
+        "history": econ.history(s),
+        "about": m["about"],
+        "source_url": m["source_url"],
+        "data_url": data_url,
+    }
+
+
+def _previous_history(section: str, metric_id: str) -> pd.Series:
+    """History of one metric from the last good JSON (used to extend short-window sources)."""
+    try:
+        data = json.loads((OUT / f"{section}.json").read_text(encoding="utf-8"))
+        hist = next(m["history"] for m in data["metrics"] if m["id"] == metric_id)
+        return pd.Series({pd.Timestamp(d): float(v) for d, v in hist}, dtype=float).sort_index()
+    except Exception:  # noqa: BLE001 - no previous file / metric yet
+        return pd.Series(dtype=float)
+
+
+def _uk_gilt_glc(m: dict) -> pd.Series:
+    """2y gilt from BoE GLC files: current month + stored history, bootstrapping from the archive once."""
+    prev = _previous_history("uk", m["id"])
+    need_bootstrap = prev.empty or prev.index[0] > pd.Timestamp.today() - pd.DateOffset(years=5)
+    if need_bootstrap:
+        log.info("uk: bootstrapping %s history from the BoE GLC archive", m["id"])
+    s = boe.fetch_glc_spot(float(m["tenor"]), bootstrap=need_bootstrap)
+    if not prev.empty:
+        s = pd.concat([prev.loc[:s.index[0] - pd.Timedelta(days=1)], s])
+    return s[~s.index.duplicated(keep="last")].sort_index()
+
+
+def build_uk() -> UK:
+    reg = load_yaml("uk.yaml")
+    metrics = reg["metrics"]
+    codes = sorted({m["series"] for m in metrics if m["source"] == "boe"}
+                   | {m["fallback_boe"] for m in metrics if m.get("fallback_boe")})
+    try:
+        iadb = boe.fetch_iadb(codes, start="2000-01-01")
+    except Exception as e:  # noqa: BLE001 - surfaced per metric below
+        log.warning("uk: BoE IADB failed: %s", e)
+        iadb = e
+
+    def from_iadb(code: str) -> pd.Series:
+        if isinstance(iadb, Exception):
+            raise iadb
+        if code not in iadb or iadb[code].empty:
+            raise ValueError(f"IADB returned no data for {code}")
+        return iadb[code]
+
+    out = []
+    for m in metrics:
+        try:
+            src = m["source"]
+            if src == "ons":
+                raw = ons.fetch_series(m["uri"], m["frequency"], m.get("alt_uris"))
+                url = ons.series_url(m["uri"])
+            elif src == "boe":
+                raw, url = from_iadb(m["series"]), boe.series_url(m["series"])
+            elif src == "boe_glc":
+                raw, url = _uk_gilt_glc(m), boe.YIELD_CURVE_PAGE
+            elif src == "yahoo":
+                try:
+                    px = yahoo.fetch_prices([m["series"]], period="10y").close[m["series"]].dropna()
+                    if px.empty:
+                        raise ValueError("empty price series")
+                    raw, url = px, yahoo.quote_url(m["series"])
+                except Exception as e:  # noqa: BLE001
+                    if not m.get("fallback_boe"):
+                        raise
+                    log.warning("uk: yahoo %s failed (%s); using BoE %s", m["series"], e, m["fallback_boe"])
+                    raw, url = from_iadb(m["fallback_boe"]), boe.series_url(m["fallback_boe"])
+            else:
+                raise ValueError(f"unknown source {src}")
+            s = econ.apply_transform({**m, "series": m["id"]}, {m["id"]: raw})
+            if s.empty:
+                raise ValueError("empty series")
+            out.append(_metric_row(m, s, url))
+        except Exception as e:  # noqa: BLE001
+            log.warning("uk metric %s failed: %s", m["id"], e)
+    if not out:
+        raise RuntimeError("no UK metrics could be built")
+    return UK(generated_at=now_iso(), groups=reg["groups"], metrics=out)
+
+
+# ── Positioning (CFTC Commitments of Traders) ──────────────────────────────
+
+def build_positioning() -> Positioning:
+    reg = load_yaml("positioning.yaml")
+    since = (pd.Timestamp.today() - pd.DateOffset(years=3, weeks=3)).strftime("%Y-%m-%d")
+    markets = []
+    for mk in reg["markets"]:
+        try:
+            rows = cftc.fetch_rows(mk["code"], mk["report"], since)
+            df = cftc.parse_rows(rows, mk["report"])
+            cfg = cftc.REPORTS[mk["report"]]
+            markets.append({
+                "id": mk["id"], "name": mk["name"], "asset_class": mk["asset_class"],
+                "report": mk["report"], "report_name": cfg["report"], "trader_group": cfg["group"],
+                "contract_code": mk["code"],
+                "exchange_name": rows[-1].get("market_and_exchange_names"),
+                **cftc.summarize(df),
+                "about": mk["about"],
+                "source_url": cftc.COT_PAGE,
+                "data_url": cftc.dataset_url(mk["report"]),
+            })
+        except Exception as e:  # noqa: BLE001
+            log.warning("positioning %s failed: %s", mk["id"], e)
+        time.sleep(0.3)  # be polite to the Socrata API
+    if not markets:
+        raise RuntimeError("no COT markets could be built")
+    return Positioning(
+        generated_at=now_iso(), report_date=max(m["report_date"] for m in markets),
+        about=reg["about"], source_url=cftc.COT_PAGE, markets=markets,
+    )
+
+
+# ── Sentiment ──────────────────────────────────────────────────────────────
+
+def vix_term_structure(close: pd.DataFrame) -> dict:
+    """VIX / VIX3M on the latest date both exist, plus 1y history and percentile."""
+    vix, v3m = close["^VIX"].dropna(), close["^VIX3M"].dropna()
+    ratio = (vix / v3m).dropna()
+    if ratio.empty:
+        raise ValueError("no overlapping VIX / VIX3M data")
+    last = ratio.index[-1]
+    r = float(ratio.iloc[-1])
+    yr = ratio.loc[last - pd.DateOffset(years=1):]
+    v9 = clean(close["^VIX9D"].get(last)) if "^VIX9D" in close else None
+    return {
+        "asof": last.strftime("%Y-%m-%d"),
+        "vix": round(float(vix[last]), 2), "vix3m": round(float(v3m[last]), 2),
+        "vix9d": round(v9, 2) if v9 is not None else None,
+        "ratio": round(r, 3),
+        "ratio_prev": round(float(ratio.iloc[-2]), 3) if len(ratio) > 1 else None,
+        "state": "backwardation" if r > 1.0 else "flat" if r >= 0.95 else "contango",
+        "percentile_1y": round(float((yr <= r).mean() * 100), 0) if len(yr) >= 20 else None,
+        "history": [[d.strftime("%Y-%m-%d"), round(float(v), 3)] for d, v in yr.items()],
+    }
+
+
+def build_sentiment() -> Sentiment:
+    reg = load_yaml("sentiment.yaml")
+    fg = fg_err = vt = vt_err = None
+    try:
+        fg = cnn.fetch()
+        for c in fg["components"]:
+            c["description"] = reg["components"].get(c["id"])
+        fg["about"] = reg["fear_greed"]["about"]
+    except Exception as e:  # noqa: BLE001
+        fg_err = f"CNN Fear & Greed unavailable: {str(e)[:200]}"
+        log.warning("sentiment: %s", fg_err)
+    try:
+        px = yahoo.fetch_prices(["^VIX", "^VIX3M", "^VIX9D"], period="2y")
+        vt = {**vix_term_structure(px.close), "about": reg["vix_term"]["about"],
+              "source_url": reg["vix_term"]["source_url"]}
+    except Exception as e:  # noqa: BLE001
+        vt_err = f"VIX term structure unavailable: {str(e)[:200]}"
+        log.warning("sentiment: %s", vt_err)
+    if fg is None and vt is None:
+        raise RuntimeError(f"{fg_err}; {vt_err}")
+    return Sentiment(generated_at=now_iso(), fear_greed=fg, fear_greed_error=fg_err,
+                     vix_term=vt, vix_term_error=vt_err)
+
+
+# ── News ───────────────────────────────────────────────────────────────────
+
+def build_news() -> News:
+    reg = load_yaml("news.yaml")
+    compiled = news.compile_rules(reg["tag_rules"])
+    now = datetime.now(timezone.utc)
+    cutoff = now - pd.Timedelta(hours=reg["window_hours"])
+    all_items, sources = [], []
+    for f in reg["feeds"]:
+        try:
+            items = news.parse_feed(news.fetch_feed(f), f, compiled)
+            recent = [i for i in items if datetime.fromisoformat(i["published"]) >= cutoff]
+            all_items += items
+            sources.append({"id": f["id"], "source": f["source"], "url": f["url"], "ok": True,
+                            "count": len(recent)})
+        except Exception as e:  # noqa: BLE001
+            log.warning("news feed %s failed: %s", f["id"], e)
+            sources.append({"id": f["id"], "source": f["source"], "url": f["url"], "ok": False,
+                            "count": 0, "error": str(e)[:200]})
+    if not any(s["ok"] for s in sources):
+        raise RuntimeError("all news feeds failed")
+    items = news.select_items(all_items, now, reg["window_hours"], reg["max_items"], reg["max_per_feed"])
+    return News(generated_at=now_iso(), window_hours=reg["window_hours"], sources=sources, items=items)
+
+
+# ── Earnings ───────────────────────────────────────────────────────────────
+
+def build_earnings() -> Earnings:
+    reg = load_yaml("earnings.yaml")
+    comps = reg["companies"]
+    items, failed = earnings.fetch_upcoming(comps, days=reg["window_days"], pause=reg["throttle_seconds"])
+    if len(failed) == len(comps):
+        raise RuntimeError("earnings lookup failed for every ticker")
+    if failed:
+        log.warning("earnings: %d tickers failed: %s", len(failed), ", ".join(failed))
+    return Earnings(generated_at=now_iso(), window_days=reg["window_days"], universe_size=len(comps),
+                    failed=failed, about=reg["about"], items=items)
+
+
+SECTIONS = ["markets", "economy", "yield_curve", "calendar", "uk", "positioning", "sentiment", "news", "earnings"]
+EXTRA_BUILDERS = {  # independent sections: no inputs from other sections
+    "uk": build_uk, "positioning": build_positioning, "sentiment": build_sentiment,
+    "news": build_news, "earnings": build_earnings,
+}
+
+
 # ── Orchestration ──────────────────────────────────────────────────────────
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--only", nargs="*", choices=["markets", "economy", "yield_curve", "calendar"])
+    ap.add_argument("--only", nargs="*", choices=SECTIONS)
     args = ap.parse_args(argv)
     load_dotenv()
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
 
-    sections = args.only or ["markets", "economy", "yield_curve", "calendar"]
+    sections = args.only or SECTIONS
     meta_path = OUT / "meta.json"
     meta = json.loads(meta_path.read_text()) if meta_path.exists() else {"sections": {}}
     meta.setdefault("sections", {})
@@ -324,6 +550,8 @@ def main(argv=None) -> int:
                 model = economy = build_economy()
             elif name == "yield_curve":
                 model = build_yield_curve()
+            elif name in EXTRA_BUILDERS:
+                model = EXTRA_BUILDERS[name]()
             else:
                 if economy is None and (OUT / "economy.json").exists():
                     economy = Economy.model_validate_json((OUT / "economy.json").read_text())
