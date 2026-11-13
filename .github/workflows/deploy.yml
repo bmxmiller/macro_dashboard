@@ -1,0 +1,71 @@
+name: deploy
+
+# Builds web/ and publishes it to GitHub Pages.
+#
+# Why `workflow_run`? Commits pushed by a workflow using the default GITHUB_TOKEN
+# do NOT trigger other workflows (GitHub blocks this to prevent recursive runs).
+# So the data commit made by update-data.yml would never fire the `push` trigger
+# below. Instead we listen for update-data finishing. We deploy on success AND on
+# failure, because a partial failure still commits fresh data for the good sections.
+
+on:
+  push:
+    branches: [main]
+  workflow_run:
+    workflows: [update-data]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One Pages deployment at a time; let an in-progress deploy finish.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    if: >-
+      github.event_name != 'workflow_run' ||
+      github.event.workflow_run.conclusion == 'success' ||
+      github.event.workflow_run.conclusion == 'failure'
+    runs-on: ubuntu-latest
+    steps:
+      # For workflow_run, github.sha is the latest commit on main, so this
+      # includes the data commit that update-data just pushed.
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install dependencies
+        working-directory: web
+        run: npm ci
+
+      - name: Build
+        working-directory: web
+        run: npm run build
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: web/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
