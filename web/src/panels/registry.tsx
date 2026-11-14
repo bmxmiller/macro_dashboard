@@ -1,8 +1,13 @@
 import type { ComponentType } from "react";
+import { EarningsCalendar } from "./EarningsCalendar";
 import { EconomicCalendar } from "./EconomicCalendar";
 import { EconomicIndicators } from "./EconomicIndicators";
 import { IndexSnapshot } from "./IndexSnapshot";
+import { NewsFeed } from "./NewsFeed";
 import { PerformancePanel } from "./PerformancePanel";
+import { Positioning } from "./Positioning";
+import { Sentiment } from "./Sentiment";
+import { UkMacro } from "./UkMacro";
 import { YieldCurvePanel } from "./YieldCurvePanel";
 
 /**
@@ -10,10 +15,14 @@ import { YieldCurvePanel } from "./YieldCurvePanel";
  * Customise View menu are both driven by this list.
  *   span: columns out of 12 on wide screens · tall: double-height row
  */
+export const SECTIONS = [
+  "Overview", "Equities", "Fixed Income", "Commodities & FX", "Macro", "Sentiment & Positioning", "News",
+] as const;
+
 export interface PanelDef {
   id: string;
   title: string;
-  section: "Overview" | "Equities" | "Fixed Income" | "Commodities & FX" | "Macro";
+  section: (typeof SECTIONS)[number];
   span: 3 | 4 | 6 | 8 | 12;
   tall?: boolean;
   Component: ComponentType;
@@ -28,4 +37,9 @@ export const PANELS: PanelDef[] = [
   { id: "commodities", title: "Commodity Performance", section: "Commodities & FX", span: 3, tall: true, Component: () => <PerformancePanel panelId="commodities" /> },
   { id: "currencies", title: "Currency Performance", section: "Commodities & FX", span: 3, Component: () => <PerformancePanel panelId="currencies" /> },
   { id: "economic_calendar", title: "Upcoming Releases", section: "Macro", span: 3, Component: EconomicCalendar },
+  { id: "uk_macro", title: "UK Macro", section: "Macro", span: 3, Component: UkMacro },
+  { id: "sentiment", title: "Market Sentiment", section: "Sentiment & Positioning", span: 3, Component: Sentiment },
+  { id: "positioning", title: "Futures Positioning", section: "Sentiment & Positioning", span: 3, Component: Positioning },
+  { id: "earnings_calendar", title: "Earnings Calendar", section: "Equities", span: 3, Component: EarningsCalendar },
+  { id: "news", title: "Market News", section: "News", span: 3, tall: true, Component: NewsFeed },
 ];

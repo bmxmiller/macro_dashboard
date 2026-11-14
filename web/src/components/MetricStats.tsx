@@ -9,7 +9,18 @@ export function changeSuffix(units: string): string {
   return "";
 }
 
-/** 10y z-score / percentile and a link to the FRED data page, shown in About cards. */
+const HOSTS: [string, string][] = [
+  ["fred.stlouisfed.org", "FRED"], ["ons.gov.uk", "ONS"], ["bankofengland.co.uk", "the Bank of England"],
+  ["yahoo.com", "Yahoo Finance"],
+];
+
+/** "Data on FRED" / "Data on ONS"… from the data URL's host. */
+function dataLinkLabel(url: string): string {
+  const host = HOSTS.find(([h]) => url.includes(h));
+  return host ? `Data on ${host[1]}` : "Data series";
+}
+
+/** 10y z-score / percentile and a link to the series' data page, shown in About cards. */
 export function MetricStats({ metric }: { metric: Metric }) {
   return (
     <div className="space-y-1.5">
@@ -21,7 +32,7 @@ export function MetricStats({ metric }: { metric: Metric }) {
       </div>
       <a href={metric.data_url} target="_blank" rel="noopener noreferrer"
         className="inline-flex items-center gap-1 font-medium hover:underline" style={{ color: "var(--accent)" }}>
-        Data on FRED <ExternalIcon />
+        {dataLinkLabel(metric.data_url)} <ExternalIcon />
       </a>
     </div>
   );

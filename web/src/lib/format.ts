@@ -56,3 +56,33 @@ export function relTime(iso: string): string {
   if (h < 48) return `${h}h ago`;
   return `${Math.round(h / 24)}d ago`;
 }
+
+/** Signed compact count: −2.26M, +28k, −2.6k, +512. */
+export function signedCompact(v: number | null | undefined): string {
+  if (v == null || Number.isNaN(v)) return "–";
+  const a = Math.abs(v);
+  const s = v > 0 ? "+" : v < 0 ? "−" : "";
+  if (a >= 1e6) return `${s}${(a / 1e6).toFixed(2)}M`;
+  if (a >= 1e4) return `${s}${(a / 1e3).toFixed(0)}k`;
+  if (a >= 1e3) return `${s}${(a / 1e3).toFixed(1)}k`;
+  return `${s}${a.toFixed(0)}`;
+}
+
+/** The URL if it is http(s), else null (never render javascript:/data: links from feeds). */
+export function safeUrl(u: string | null | undefined): string | null {
+  if (!u) return null;
+  try {
+    const url = new URL(u);
+    return url.protocol === "http:" || url.protocol === "https:" ? url.href : null;
+  } catch {
+    return null;
+  }
+}
+
+/** "1st", "22nd", "73rd", "100th". */
+export function ordinal(n: number): string {
+  const r = Math.round(n);
+  const t = r % 100;
+  const sfx = t >= 11 && t <= 13 ? "th" : ({ 1: "st", 2: "nd", 3: "rd" } as Record<number, string>)[r % 10] ?? "th";
+  return `${r}${sfx}`;
+}
