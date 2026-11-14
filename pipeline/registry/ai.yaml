@@ -27,7 +27,7 @@ providers:
 
 temperature: 0.3
 max_output_tokens: 8192            # Gemini 3.x "thinking" tokens count toward this, so leave headroom
-timeout_seconds: 90
+timeout_seconds: 150                # gemini-3.8-flash (thinking) timed out at 90s on a ~4k-token digest
 retries: 2                         # extra attempts per provider on 429 / 5xx / timeout / bad JSON
 retry_backoff_seconds: 4           # doubled each retry
 

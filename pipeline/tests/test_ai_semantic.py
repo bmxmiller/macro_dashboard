@@ -61,3 +61,24 @@ def test_tendencies_are_code_authored_hedged_and_cited():
     # the LLM schema has no tendencies field: it cannot write them
     from pipeline.ai.insights import RESPONSE_SCHEMA
     assert "asset_tendencies" not in yaml.safe_dump(RESPONSE_SCHEMA)
+
+
+def _with_components(**scores):
+    d = copy.deepcopy(DIGEST)
+    gi = d["regime"]["growth_inflation"]
+    for metric, s in scores.items():
+        side = "inflation" if metric.startswith("core") else "growth"
+        gi[side]["components"].append({"label": metric, "metric": metric, "score": s})
+    return d
+
+
+def test_component_wording_must_match_its_score():
+    # The live gemini-3.5-flash-lite answer (2026-11-14) passed every numeric check but said this
+    # while the GDP momentum component was −0.57 (decelerating).
+    d = _with_components(gdp=-0.57, indpro=0.78, core_cpi=-0.04)
+    bad = "Real GDP YoY and industrial production point to firmer activity."
+    v = V.validate(out_with(bad, "cycle_view"), d)
+    assert len(v) == 1 and "GDP" in v[0] and "-0.57" in v[0]
+    assert V.validate(out_with("Industrial production points to firmer activity, while GDP momentum is softer.",
+                               "cycle_view"), d) == []
+    assert V.validate(out_with("Core CPI is firming.", "cycle_view"), d)  # flat (−0.04)

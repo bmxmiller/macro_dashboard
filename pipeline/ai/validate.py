@@ -532,6 +532,44 @@ _LEADER = re.compile(r"\b(credit|duration)(?:\s+(?:is|was|has been|remains|now))
                      re.IGNORECASE)
 
 
+_COMPONENT_ALIASES = {"industrial production": "indpro", "indpro": "indpro", "gdp": "gdp", "growth in output": "gdp",
+                      "core cpi": "core_cpi", "core pce": "core_pce"}
+_COMPONENT_RE = re.compile(r"\b(" + "|".join(re.escape(a) for a in sorted(_COMPONENT_ALIASES, key=len, reverse=True))
+                           + r")\b", re.IGNORECASE)
+_FIRM = re.compile(r"\b(?:firm\w*|strong\w*|strengthen\w*|improv\w*|accelerat\w*|pick\w* up|robust|solid|"
+                   r"re-?accelerat\w*|heating)\b", re.IGNORECASE)
+_SOFT = re.compile(r"\b(?:soft\w*|weak\w*|slow\w*|decelerat\w*|deteriorat\w*|cool\w*|fad\w*|loss of momentum)\b",
+                   re.IGNORECASE)
+_SENTENCE = re.compile(r"[.;!?](?=\s|$)|\b(?:while|but|whereas|although|though)\b", re.IGNORECASE)
+
+
+def _component_scores(gi: dict) -> dict[str, float]:
+    return {c.get("metric"): c.get("score") for side in ("growth", "inflation")
+            for c in (gi.get(side) or {}).get("components", []) if _num(c.get("score"))}
+
+
+def check_components(path: str, text: str, scores: dict[str, float]) -> list[str]:
+    """'GDP points to firmer activity' must agree with the GDP momentum component's sign."""
+    v = []
+    bounds = [0] + [m.end() for m in _SENTENCE.finditer(text)] + [len(text)]
+    for a, b in zip(bounds, bounds[1:]):
+        clause = text[a:b]
+        firm, soft = bool(_FIRM.search(clause)), bool(_SOFT.search(clause))
+        if firm == soft:  # no claim, or mixed wording: not checkable
+            continue
+        for m in _COMPONENT_RE.finditer(clause):
+            key = _COMPONENT_ALIASES[m.group(1).lower()]
+            s = scores.get(key)
+            if s is None:
+                continue
+            state = "accelerating" if s >= 0.1 else "decelerating" if s <= -0.1 else "flat"
+            said = "firmer" if firm else "softer"
+            if (firm and state != "accelerating") or (soft and state != "decelerating"):
+                v.append(f'{path}: "{clause.strip()[:80]}" calls {m.group(1)} {said}, but its momentum score is '
+                         f'{s:+.2f} ({state})')
+    return v
+
+
 def check_semantics(out: dict, digest: dict) -> list[str]:
     rg = digest.get("regime") or {}
     gi = rg.get("growth_inflation") or {}
@@ -539,8 +577,11 @@ def check_semantics(out: dict, digest: dict) -> list[str]:
     states = {"growth": (gi.get("growth") or {}).get("state"), "inflation": (gi.get("inflation") or {}).get("state")}
     stance = (rg.get("growth_policy") or {}).get("stance")
     leader = (rg.get("credit_duration") or {}).get("leader")
+    comp_scores = _component_scores(gi)
     v = []
     for path, text in text_fields(out):
+        if not path.startswith("news_clusters"):  # summaries paraphrase headlines, not the regime
+            v += check_components(path, text, comp_scores)
         for m in ADVICE.finditer(text):
             v.append(f'{path}: "{m.group(0)}": no advice or predictions (buy/sell/should/will…)')
         if rg:
