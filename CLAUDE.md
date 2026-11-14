@@ -25,5 +25,11 @@ Self-updating macro dashboard. A Python pipeline writes static JSON, a React app
 
 ## Workflow
 - Feature work happens on branches (`feat/*`) and goes through a **pull request**. CI (pytest, typecheck, build, e2e) must be green. `deploy` only runs after `ci` passes on main.
-- Custom agents in `.claude/agents/`: `finance-reviewer` (reviews numbers and explanations on every PR) and `data-verifier` (checks published data against official sources).
+- Custom agents in `.claude/agents/` (read-only reviewers; custom agent types load at session start, so if one isn't found, spawn a `general-purpose` agent and tell it to read the `.md` file and adopt it as its role):
+  - `finance-reviewer`: numbers, units, economics and About-text accuracy on every PR
+  - `data-verifier`: checks published data against official sources
+  - `prompt-redteamer`: attacks the AI fact-checker (`pipeline/ai/validate.py`) with plausible false outputs
+  - `ui-reviewer`: screenshots and code for accessibility, contrast and layout
+- Project skills in `.claude/skills/`: `/add-metric` (a new indicator), `/new-panel` (a new panel end to end), `/ship-feature` (the whole plan → parallel agents → PRs → review → merge → verify workflow)
+- GitHub: always use the **bmxmiller** account. `main` is protected (PR + green CI); the daily data bot pushes with a deploy key (`DATA_DEPLOY_KEY`), which is the only bypass.
 - Windows note: the harness's `isolation: "worktree"` fails on this machine (drive-letter case), so parallel agents use manual worktrees in `../Macro_Dashboard-wt/<name>`.
