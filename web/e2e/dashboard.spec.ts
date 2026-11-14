@@ -43,6 +43,7 @@ const CORE_SECTIONS: Record<string, string> = {
   economic_indicators: "economy",
   yield_curve: "yield_curve",
   economic_calendar: "calendar",
+  macro_regime: "regime", // code-computed, committed; needs no LLM key
 };
 
 // Network noise we tolerate: favicon and Google Fonts only.
@@ -122,6 +123,24 @@ test.describe("dashboard", () => {
       const name = /"([\w-]+)" section|([\w-]+)\.json/.exec(msg);
       const section = name?.[1] ?? name?.[2];
       expect(section && !existsSync(join(DATA_DIR, `${section}.json`)), `unexpected load error: ${msg}`).toBe(true);
+    }
+  });
+
+  test("AI panels: regime always renders; AI text or the 'not generated yet' message", async ({ page }) => {
+    // regime.json is computed by code and always committed; insights.json only exists once an
+    // LLM key is configured, so both of its states are valid.
+    const has = existsSync(join(DATA_DIR, "insights.json"));
+    if (PANELS.some((p) => p.id === "macro_regime")) {
+      const regime = panel(page, "macro_regime");
+      await expect(regime).toContainText("Growth × Inflation momentum");
+      await expect(regime).toContainText("Historical tendencies (generalisations, not forecasts)");
+      await expect(regime).toContainText(has ? "Why (AI explainer)" : "AI explainer not generated yet");
+      await expect(regime.getByText(/Could not load/)).toHaveCount(0);
+    }
+    if (PANELS.some((p) => p.id === "macro_brief")) {
+      const brief = panel(page, "macro_brief");
+      await expect(brief.getByText("Could not load data")).toHaveCount(0);
+      await expect(brief).toContainText(has ? "Not investment advice" : "AI insights not generated yet");
     }
   });
 

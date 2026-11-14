@@ -1,4 +1,6 @@
 import type { ComponentType } from "react";
+import { MacroBrief } from "./ai/MacroBrief";
+import { RegimePanel } from "./ai/RegimePanel";
 import { EarningsCalendar } from "./EarningsCalendar";
 import { EconomicCalendar } from "./EconomicCalendar";
 import { EconomicIndicators } from "./EconomicIndicators";
@@ -16,7 +18,7 @@ import { YieldCurvePanel } from "./YieldCurvePanel";
  *   span: columns out of 12 on wide screens · tall: double-height row
  */
 export const SECTIONS = [
-  "Overview", "Equities", "Fixed Income", "Commodities & FX", "Macro", "Sentiment & Positioning", "News",
+  "Overview", "AI Insights", "Equities", "Fixed Income", "Commodities & FX", "Macro", "Sentiment & Positioning", "News",
 ] as const;
 
 export interface PanelDef {
@@ -30,6 +32,8 @@ export interface PanelDef {
 
 export const PANELS: PanelDef[] = [
   { id: "index_snapshot", title: "Index Snapshot", section: "Overview", span: 12, Component: IndexSnapshot },
+  { id: "macro_brief", title: "AI Macro Brief", section: "AI Insights", span: 6, tall: true, Component: MacroBrief },
+  { id: "macro_regime", title: "Macro Regime", section: "AI Insights", span: 6, tall: true, Component: RegimePanel },
   { id: "economic_indicators", title: "Economic Indicators", section: "Macro", span: 3, tall: true, Component: EconomicIndicators },
   { id: "sectors", title: "Sector Performance", section: "Equities", span: 3, Component: () => <PerformancePanel panelId="sectors" /> },
   { id: "earnings_calendar", title: "Earnings Calendar", section: "Equities", span: 3, Component: EarningsCalendar },

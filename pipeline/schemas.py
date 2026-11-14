@@ -256,3 +256,140 @@ class Earnings(BaseModel):
     failed: list[str]
     about: About
     items: list[EarningsItem]
+
+
+# ── Macro regime (regime.json) ─────────────────────────────────────────────
+# Computed by code only (pipeline/ai/regime.py); needs no LLM key.
+
+class RegimeComponent(BaseModel):
+    id: str
+    metric: str
+    label: str
+    value: Optional[float]
+    units: str
+    score: Optional[float]
+    asof: Optional[str] = None
+    detail: dict[str, Optional[float]]
+
+
+class RegimeSignal(BaseModel):
+    score: Optional[float]          # −1..1
+    direction: Optional[Literal["up", "down"]]
+    state: Optional[Literal["accelerating", "decelerating", "flat"]]
+    components: list[RegimeComponent]
+
+
+Quadrant = Literal["Inflationary boom", "Goldilocks", "Stagflation", "Disinflationary slowdown"]
+
+
+class GrowthInflation(BaseModel):
+    quadrant: Optional[Quadrant]
+    label: Optional[str]            # e.g. "Goldilocks / Inflationary boom boundary"
+    boundary: bool
+    allowed_quadrants: list[Quadrant]
+    growth: RegimeSignal
+    inflation: RegimeSignal
+    level_note: Optional[str]
+    core_pce_pct: Optional[float]
+    inflation_target_pct: float
+
+
+class GrowthPolicy(BaseModel):
+    label: Optional[str]
+    stance: Optional[Literal["restrictive", "neutral", "accommodative"]]
+    borderline: bool
+    real_rate_pct: Optional[float]
+    fed_funds_upper_pct: Optional[float] = None
+    fed_funds_mid_pct: Optional[float] = None
+    core_pce_pct: Optional[float] = None
+    neutral_band_pct: list[float]
+    growth_direction: Optional[Literal["up", "down"]]
+    note: str
+
+
+class CreditPair(BaseModel):
+    long: str
+    short: str
+    long_ret_pct: float
+    short_ret_pct: float
+    spread_pp: float
+
+
+class CreditDuration(BaseModel):
+    label: Optional[str]
+    leader: Optional[Literal["credit", "duration", "balanced"]]
+    borderline: bool
+    score_pp: Optional[float]
+    period: str
+    pairs: list[CreditPair]
+    hy_oas_3m_chg_bp: Optional[int]
+    hy_oas_confirms: Optional[bool]
+
+
+class Tendency(BaseModel):
+    id: str
+    text: str
+
+
+class RegimeTendencies(BaseModel):
+    quadrant: Optional[Quadrant]
+    items: list[Tendency]
+    basis: str
+
+
+class Regime(BaseModel):
+    generated_at: str
+    data_asof: Optional[str]
+    about: About
+    methodology_url: str
+    sources: list[dict[str, str]]   # [{label, url}]
+    growth_inflation: GrowthInflation
+    growth_policy: GrowthPolicy
+    credit_duration: CreditDuration
+    tendencies: RegimeTendencies
+    stale_inputs: list[str]
+
+
+# ── AI insights (insights.json) ────────────────────────────────────────────
+# LLM text only, after validation. The regime itself lives in regime.json.
+
+class InsightsBrief(BaseModel):
+    headline: str
+    bullets: list[str]
+    what_moved: str
+    cycle_view: str
+
+
+class InsightsNewsLink(BaseModel):
+    id: str
+    title: str
+    url: str
+    source: str
+
+
+class InsightsNewsCluster(BaseModel):
+    topic: str
+    summary: str
+    tags: list[str]
+    item_ids: list[str]
+    items: list[InsightsNewsLink]   # resolved at build time so links survive news.json updates
+
+
+class RegimeExplainer(BaseModel):
+    rationale: str
+    caveats: list[str]
+    regime_generated_at: Optional[str]  # the regime.json this text explains
+    regime_label: Optional[str]
+
+
+class Insights(BaseModel):
+    generated_at: str
+    provider: str
+    model: str
+    data_asof: Optional[str]
+    about: About
+    sources: list[dict[str, str]]
+    brief: InsightsBrief
+    news_clusters: list[InsightsNewsCluster]
+    regime_explainer: RegimeExplainer
+    disclaimer: str

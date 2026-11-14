@@ -20,6 +20,9 @@ from pathlib import Path
 import pandas as pd
 import yaml
 
+from .ai.insights import build_insights
+from .ai.regime_section import build_regime
+from .ai.llm import NoProviderAvailable
 from .fetchers import boe, cftc, cnn, earnings, fomc, fred, news, ons, yahoo
 from .fetchers.http import RedactingFilter, redact
 from .schemas import UK, Calendar, Earnings, Economy, Markets, News, Positioning, Sentiment, YieldCurve
@@ -540,7 +543,11 @@ def build_earnings() -> Earnings:
                     failed=failed, about=reg["about"], items=items)
 
 
-SECTIONS = ["markets", "economy", "yield_curve", "calendar", "uk", "positioning", "sentiment", "news", "earnings"]
+# "regime" then "insights" must stay LAST: they read the JSON the other sections just wrote.
+# regime is code only (no keys); insights adds LLM text on top of it.
+SECTIONS = ["markets", "economy", "yield_curve", "calendar", "uk", "positioning", "sentiment", "news", "earnings",
+            "regime", "insights"]
+DERIVED = ["regime", "insights"]
 EXTRA_BUILDERS = {  # independent sections: no inputs from other sections
     "uk": build_uk, "positioning": build_positioning, "sentiment": build_sentiment,
     "news": build_news, "earnings": build_earnings,
@@ -559,6 +566,8 @@ def main(argv=None) -> int:
         h.addFilter(RedactingFilter())
 
     sections = args.only or SECTIONS
+    # derived sections always run after the data sections, in this order, whatever the --only order
+    sections = [s for s in sections if s not in DERIVED] + [s for s in DERIVED if s in sections]
     meta_path = OUT / "meta.json"
     meta = json.loads(meta_path.read_text()) if meta_path.exists() else {"sections": {}}
     meta.setdefault("sections", {})
@@ -573,6 +582,10 @@ def main(argv=None) -> int:
                 model = economy = build_economy()
             elif name == "yield_curve":
                 model = build_yield_curve()
+            elif name == "regime":
+                model = build_regime(OUT)
+            elif name == "insights":
+                model = build_insights(OUT)
             elif name in EXTRA_BUILDERS:
                 model = EXTRA_BUILDERS[name]()
             else:
@@ -581,12 +594,22 @@ def main(argv=None) -> int:
                 model = build_calendar(economy)
             write_json(f"{name}.json", model)
             meta["sections"][name] = {"ok": True, "updated_at": now_iso()}
+        except NoProviderAvailable as e:
+            # Not a failure: no LLM key configured. Keep any previous insights.json untouched;
+            # "skipped" + "note" let the UI explain why instead of flagging it stale.
+            note = f"Skipped: {redact(str(e))}. Previous output kept."
+            log.info("section %s skipped: %s", name, note)
+            prev = meta["sections"].get(name, {})
+            meta["sections"][name] = {**({"updated_at": prev["updated_at"]} if "updated_at" in prev else {}),
+                                      "ok": True, "skipped": True, "note": note, "checked_at": now_iso()}
         except Exception as e:  # noqa: BLE001
             status_ok = False
             err = redact(f"{type(e).__name__}: {e}")
             log.error("section %s failed: %s", name, err)
             log.debug(redact(traceback.format_exc()))
-            prev = meta["sections"].get(name, {})
+            # Drop a previous run's "skipped"/"note" (e.g. "no LLM key"): it no longer applies.
+            prev = {k: v for k, v in meta["sections"].get(name, {}).items()
+                    if k not in ("skipped", "note", "checked_at")}
             # meta.json is PUBLIC (committed + deployed): only ever store redacted text.
             meta["sections"][name] = {**prev, "ok": False, "error": err[:300], "failed_at": now_iso()}
 
