@@ -41,6 +41,23 @@ def test_semantic_ok(text):
     assert V.validate(out_with(text, "cycle_view"), DIGEST) == []
 
 
+@pytest.mark.parametrize("text", [
+    # exact sentence seen in the first live brief
+    "The US 10Y Yield rose with a 5 bp increase to a level_pct of 5.15.",
+    "The S&P 500 gained per ret_1w_pct.",
+    "The 10-year moved by chg_1d_bp.",
+])
+def test_internal_field_names_rejected(text):
+    v = V.validate(out_with(text), DIGEST)
+    assert any("internal field name" in x for x in v), (text, v)
+
+
+def test_plain_english_is_not_flagged_as_field_name():
+    for text in ["The 10Y yield rose 5 bp to 5.15%.", "Year-over-year growth: S&P 500 fell 0.4%.",
+                 "A risk-on, short-term move in non-farm payrolls."]:
+        assert not V.check_field_names("brief.what_moved", text), text
+
+
 def test_boundary_allows_both_neighbouring_names():
     d = copy.deepcopy(DIGEST)
     d["regime"]["growth_inflation"].update(label="Goldilocks / Inflationary boom boundary", boundary=True,

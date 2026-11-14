@@ -570,6 +570,16 @@ def check_components(path: str, text: str, scores: dict[str, float]) -> list[str
     return v
 
 
+# Internal data keys (ret_1w_pct, level_pct, chg_1d_bp, avg_4w_k…) must never reach readers.
+# Seen live: "to a level_pct of 5.15". Matches snake_case identifiers; ordinary prose has none.
+_FIELD_NAME = re.compile(r"\b[a-z][a-z0-9]*(?:_[a-z0-9]+)+\b")
+
+
+def check_field_names(path: str, text: str) -> list[str]:
+    return [f'{path}: internal field name "{m.group(0)}" leaked into the text; write plain English '
+            f'(e.g. "rose to 5.15%")' for m in _FIELD_NAME.finditer(text)]
+
+
 def check_semantics(out: dict, digest: dict) -> list[str]:
     rg = digest.get("regime") or {}
     gi = rg.get("growth_inflation") or {}
@@ -580,6 +590,7 @@ def check_semantics(out: dict, digest: dict) -> list[str]:
     comp_scores = _component_scores(gi)
     v = []
     for path, text in text_fields(out):
+        v += check_field_names(path, text)
         if not path.startswith("news_clusters"):  # summaries paraphrase headlines, not the regime
             v += check_components(path, text, comp_scores)
         for m in ADVICE.finditer(text):
