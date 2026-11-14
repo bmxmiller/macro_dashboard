@@ -39,3 +39,7 @@ A read-only reviewer agent audited the merged code and reported 14 verified find
 - Also fixed: empty sections marked "ok" (markets/yield curve now fail and keep last good data), FX quote direction labelled, calendar time sort, `http(s)`-only news links, registry-loading tests in CI, and three factual corrections in About texts (Sahm 2024 false positive, CPI-U vs CPI-W indexation, VIX term-structure thresholds).
 
 **Open follow-ups** (accepted, not yet done): stale-by-age detection in the UI; LFS period labels (Jun–Aug shown as Jul); re-bootstrap 2Y gilt history; "previous" for step series like policy rates; robust z-scores excluding the 2020 COVID outliers; pin Python deps and gate deploy on CI.
+
+### Session 2 (2026-11-14): live FRED data + external validation
+- FRED API key added locally (`.env`, gitignored). Economy, yield curve and the full release calendar were built live.
+- **Cross-validated against an independent source** (the StableBread dashboard): CPI, core CPI, core PCE, NFP, unemployment, UMich, retail sales, debt/GDP and interest/GDP all match to the decimal (core CPI prev differs by rounding). The only difference is PPI, where we chose BLS *final demand* PPI (the headline series) and the reference uses a different PPI index. That is a choice of measure, documented rather than "fixed".
