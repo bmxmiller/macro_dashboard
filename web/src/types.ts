@@ -134,6 +134,18 @@ export interface Earnings {
   failed: string[]; about: About; items: EarningsItem[];
 }
 
+// ── S&P 500 heat map (sp500.json) ──────────────────────────────────────────
+export interface SP500Row {
+  t: string; name: string; sector: string;
+  price: number; shares: number;
+  cap: number;                                   // market cap, US$ billions
+  returns: Partial<Record<Period, number | null>>; // PRICE returns, %
+}
+export interface SP500 {
+  generated_at: string; asof: string; periods: Period[]; source_url: string;
+  about: About; failed: string[]; rows: SP500Row[];
+}
+
 // ── Macro regime (regime.json): computed by code (pipeline/ai/regime.py), no LLM ──
 export type Quadrant = "Inflationary boom" | "Goldilocks" | "Stagflation" | "Disinflationary slowdown";
 export interface SourceLink { label: string; url: string }

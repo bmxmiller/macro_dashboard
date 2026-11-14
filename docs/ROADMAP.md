@@ -37,7 +37,7 @@ The original brief was "all metrics included in the screenshots". Built: Index S
 - [ ] **Factors Performance** (momentum, quality, value, low vol, size…) and **Size vs Value**
 - [ ] **Country ETF Performance** and **Global Equity Indexes**
 - [ ] **Thematic Trends** (sparkline tiles: solar, uranium, lithium, space, cyber, genomics, defence…)
-- [ ] **S&P 500 Heat Map** (treemap by market cap; needs constituents + market caps, the heaviest item)
+- [x] **S&P 500 Heat Map** (treemap by market cap, `feat/sp500-heatmap`; committed constituent snapshot in `registry/sp500.yaml`, review it after index rebalances)
 - [ ] **Metrics Heat Map** (z-scores of the macro metrics; pairs well with issue #5, robust z-scores)
 - [ ] **Commodities** and **Currencies** *price tables* (last price, units), separate from the performance panels
 - [ ] **Growth × Policy** and **Credit × Duration** as charts (today they are rows inside the Macro Regime panel)

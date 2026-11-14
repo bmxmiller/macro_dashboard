@@ -23,10 +23,11 @@ import yaml
 from .ai.insights import build_insights
 from .ai.regime_section import build_regime
 from .ai.llm import NoProviderAvailable
-from .fetchers import boe, cftc, cnn, earnings, fomc, fred, news, ons, yahoo
+from .fetchers import boe, cftc, cnn, earnings, fomc, fred, news, ons, sp500, yahoo
 from .fetchers.http import RedactingFilter, redact
-from .schemas import UK, Calendar, Earnings, Economy, Markets, News, Positioning, Sentiment, YieldCurve
+from .schemas import UK, SP500, Calendar, Earnings, Economy, Markets, News, Positioning, Sentiment, YieldCurve
 from .transforms import econ
+from .transforms import sp500 as sp500_tx
 from .transforms.returns import PERIODS, period_returns, sparkline, trailing_yield
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -543,14 +544,53 @@ def build_earnings() -> Earnings:
                     failed=failed, about=reg["about"], items=items)
 
 
+def build_sp500() -> SP500:
+    reg = load_yaml("sp500.yaml")
+    comps = reg["companies"]
+    tickers = [c["t"] for c in comps]
+    close = sp500.fetch_closes(tickers, period="4y", chunk_size=reg["chunk_size"])
+
+    # Share counts are one Yahoo request per ticker and change slowly: refresh them all on
+    # Saturday (the full rebuild) and otherwise only fetch the ones we don't have cached yet.
+    prev_path = OUT / "sp500.json"
+    cached: dict[str, float] = {}
+    prev_prices: dict[str, float] = {}
+    prev_asof = None
+    if prev_path.exists():
+        try:
+            prev = json.loads(prev_path.read_text(encoding="utf-8"))
+            cached = {r["t"]: float(r["shares"]) for r in prev["rows"]}
+            prev_prices = {r["t"]: float(r["price"]) for r in prev["rows"]}
+            prev_asof = prev["asof"]
+        except (ValueError, KeyError, TypeError):
+            log.warning("sp500.json unreadable, refetching all share counts")
+    refresh_all = datetime.now(timezone.utc).weekday() == 5 or not cached
+    split_suspects = [] if refresh_all else sp500_tx.stale_share_tickers(prev_prices, prev_asof, close)
+    if split_suspects:
+        log.warning("sp500: possible stock split, refetching shares for: %s", ", ".join(split_suspects))
+    need = tickers if refresh_all else [t for t in tickers if t not in cached or t in split_suspects]
+    fresh = sp500.fetch_shares(need) if need else {}
+    shares = {**cached, **fresh}  # a failed refresh keeps the cached count
+
+    rows, failed = sp500_tx.build_rows(comps, close, shares)
+    if failed:
+        log.warning("sp500: %d tickers without price or share count: %s", len(failed), ", ".join(failed))
+    if len(failed) > reg["max_missing_share"] * len(tickers):
+        # Fail the section so the last good sp500.json is kept and flagged stale.
+        raise RuntimeError(f"S&P 500 data missing for {len(failed)} of {len(tickers)} tickers")
+    asof = close.dropna(how="all").index[-1].strftime("%Y-%m-%d")
+    return SP500(generated_at=now_iso(), asof=asof, periods=PERIODS, source_url=reg["source_url"],
+                 about=reg["about"], failed=failed, rows=rows)
+
+
 # "regime" then "insights" must stay LAST: they read the JSON the other sections just wrote.
 # regime is code only (no keys); insights adds LLM text on top of it.
 SECTIONS = ["markets", "economy", "yield_curve", "calendar", "uk", "positioning", "sentiment", "news", "earnings",
-            "regime", "insights"]
+            "sp500", "regime", "insights"]
 DERIVED = ["regime", "insights"]
 EXTRA_BUILDERS = {  # independent sections: no inputs from other sections
     "uk": build_uk, "positioning": build_positioning, "sentiment": build_sentiment,
-    "news": build_news, "earnings": build_earnings,
+    "news": build_news, "earnings": build_earnings, "sp500": build_sp500,
 }
 
 

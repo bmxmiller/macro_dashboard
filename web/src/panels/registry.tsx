@@ -9,6 +9,7 @@ import { NewsFeed } from "./NewsFeed";
 import { PerformancePanel } from "./PerformancePanel";
 import { Positioning } from "./Positioning";
 import { Sentiment } from "./Sentiment";
+import { SP500Heatmap } from "./SP500Heatmap";
 import { UkMacro } from "./UkMacro";
 import { YieldCurvePanel } from "./YieldCurvePanel";
 
@@ -35,6 +36,7 @@ export const PANELS: PanelDef[] = [
   { id: "macro_brief", title: "AI Macro Brief", section: "AI Insights", span: 6, tall: true, Component: MacroBrief },
   { id: "macro_regime", title: "Macro Regime", section: "AI Insights", span: 6, tall: true, Component: RegimePanel },
   { id: "economic_indicators", title: "Economic Indicators", section: "Macro", span: 3, tall: true, Component: EconomicIndicators },
+  { id: "sp500_heatmap", title: "S&P 500 Heat Map", section: "Equities", span: 8, tall: true, Component: SP500Heatmap },
   { id: "sectors", title: "Sector Performance", section: "Equities", span: 3, Component: () => <PerformancePanel panelId="sectors" /> },
   { id: "earnings_calendar", title: "Earnings Calendar", section: "Equities", span: 3, Component: EarningsCalendar },
   { id: "fixed_income", title: "Fixed Income Performance", section: "Fixed Income", span: 3, tall: true, Component: () => <PerformancePanel panelId="fixed_income" showYield /> },
