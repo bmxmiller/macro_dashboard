@@ -125,6 +125,17 @@ test.describe("dashboard", () => {
     }
   });
 
+  test("AI panels show insights, or the 'not generated yet' message when insights.json is absent", async ({ page }) => {
+    // insights.json only exists once an LLM key is configured, so both states are valid.
+    const has = existsSync(join(DATA_DIR, "insights.json"));
+    for (const id of ["macro_brief", "macro_regime"]) {
+      if (!PANELS.some((p) => p.id === id)) continue;
+      const p = panel(page, id);
+      await expect(p.getByText("Could not load data")).toHaveCount(0);
+      await expect(p).toContainText(has ? "Not investment advice" : "AI insights not generated yet");
+    }
+  });
+
   test("period radio changes the Sector Performance subtitle", async ({ page }) => {
     const sectors = panel(page, "sectors");
     await expect(sectors).toContainText("Total return · 6M");

@@ -28,7 +28,7 @@ function QuadrantGrid({ gi }: { gi: GrowthInflation }) {
       <div className="flex gap-1.5">
         <div className="flex items-center text-[9.5px] font-bold uppercase tracking-wide [writing-mode:vertical-rl] rotate-180"
           style={{ color: "var(--muted)" }}>Inflation ↑</div>
-        <div className="relative flex-1 grid grid-cols-2 grid-rows-2 gap-px rounded-sm overflow-hidden aspect-[2/1] min-h-[120px]"
+        <div className="relative flex-1 grid grid-cols-2 grid-rows-2 gap-px rounded-sm overflow-hidden h-[150px]"
           style={{ background: "var(--border)" }} role="img"
           aria-label={`Growth × Inflation grid. Current quadrant: ${gi.quadrant ?? "unknown"}. Growth score ${g ?? "n/a"}, inflation score ${i ?? "n/a"}.`}>
           {CELLS.map((c) => {
