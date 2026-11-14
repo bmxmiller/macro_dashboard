@@ -258,6 +258,28 @@ class Earnings(BaseModel):
     items: list[EarningsItem]
 
 
+# ── S&P 500 heat map (sp500.json) ──────────────────────────────────────────
+
+class SP500Row(BaseModel):
+    t: str
+    name: str
+    sector: str
+    price: float
+    shares: int            # cached between runs (refreshed weekly); cap = shares x price
+    cap: float             # market cap, US$ billions
+    returns: dict[str, Optional[float]]   # PRICE returns, %
+
+
+class SP500(BaseModel):
+    generated_at: str
+    asof: str
+    periods: list[str]
+    source_url: str
+    about: About
+    failed: list[str]
+    rows: list[SP500Row]
+
+
 # ── Macro regime (regime.json) ─────────────────────────────────────────────
 # Computed by code only (pipeline/ai/regime.py); needs no LLM key.
 

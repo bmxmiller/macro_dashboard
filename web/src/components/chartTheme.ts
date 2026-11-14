@@ -6,6 +6,7 @@ export type { EChartsOption };
 export interface ChartColors {
   accent: string; ink: string; ink2: string; muted: string; grid: string;
   surface: string; surface2: string; border: string;
+  pos: string; neg: string; mid: string;   // diverging performance poles + neutral midpoint
 }
 
 export function readColors(): ChartColors {
@@ -14,6 +15,7 @@ export function readColors(): ChartColors {
   return {
     accent: v("--accent"), ink: v("--ink"), ink2: v("--ink-2"), muted: v("--muted"),
     grid: v("--grid"), surface: v("--surface"), surface2: v("--surface-2"), border: v("--border"),
+    pos: v("--pos"), neg: v("--neg"), mid: v("--mid"),
   };
 }
 

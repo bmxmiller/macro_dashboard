@@ -8,14 +8,42 @@ const DIFF_SCALE: Record<Period, number> = {   // yields: change in percentage p
   "1D": 0.15, "1W": 0.3, "1M": 0.5, "3M": 0.8, "6M": 1, YTD: 1.25, "1Y": 1.5, "3Y": 2.5,
 };
 
+/** How far a value sits towards its pole: which pole, and the % of pole colour mixed into the midpoint. */
+function perfMix(v: number, period: Period, mode: "pct" | "diff"): { pole: "pos" | "neg"; pct: number } {
+  const s = (mode === "diff" ? DIFF_SCALE : SCALE)[period];
+  const t = Math.min(Math.abs(v) / s, 1);
+  return { pole: v >= 0 ? "pos" : "neg", pct: Math.round(8 + Math.sqrt(t) * 62) }; // 8% → 70%; sqrt lifts small moves
+}
+
 /** Diverging background: neutral midpoint → pos/neg pole, intensity ∝ |v|. */
 export function perfBg(v: number | null | undefined, period: Period, mode: "pct" | "diff" = "pct"): string {
   if (v == null || Number.isNaN(v)) return "transparent";
-  const s = (mode === "diff" ? DIFF_SCALE : SCALE)[period];
-  const t = Math.min(Math.abs(v) / s, 1);
-  const pct = Math.round(8 + Math.sqrt(t) * 62); // 8% → 70% mix; sqrt lifts small moves
-  const pole = v >= 0 ? "var(--pos)" : "var(--neg)";
-  return `color-mix(in oklab, ${pole} ${pct}%, var(--mid))`;
+  const { pole, pct } = perfMix(v, period, mode);
+  return `color-mix(in oklab, var(--${pole}) ${pct}%, var(--mid))`;
+}
+
+function hexToRgb(hex: string): [number, number, number] | null {
+  const m = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(hex.trim());
+  if (!m) return null;
+  const h = m[1].length === 3 ? m[1].replace(/./g, (c) => c + c) : m[1];
+  return [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16)) as [number, number, number];
+}
+
+/**
+ * Same scale as perfBg() but as a concrete rgb() string, for canvas charts that cannot
+ * read CSS variables or color-mix(). Mixes in sRGB (perfBg mixes in oklab: near-identical).
+ */
+export function perfColor(
+  v: number | null | undefined, period: Period, colors: { pos: string; neg: string; mid: string },
+): string {
+  const mid = hexToRgb(colors.mid);
+  if (v == null || Number.isNaN(v) || !mid) return colors.mid;
+  const { pole, pct } = perfMix(v, period, "pct");
+  const p = hexToRgb(colors[pole]);
+  if (!p) return colors.mid;
+  const k = pct / 100;
+  const [r, g, b] = p.map((c, i) => Math.round(c * k + mid[i] * (1 - k)));
+  return `rgb(${r},${g},${b})`;
 }
 
 export function signed(v: number | null | undefined, decimals = 1, suffix = "%"): string {
