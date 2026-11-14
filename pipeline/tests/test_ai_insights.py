@@ -1,4 +1,4 @@
-"""Insights flow (LLM mocked): retry with feedback, provider fallback, skip without keys, size bound."""
+"""Insights + regime sections (LLM mocked): retry with feedback, fallback, skip, size bound."""
 import json
 import shutil
 from pathlib import Path
@@ -11,12 +11,11 @@ from pipeline.ai.regime import compute_regime
 from pipeline.schemas import Insights
 
 DATA = Path(__file__).resolve().parents[2] / "web" / "public" / "data"
-INPUTS = ["markets", "economy", "yield_curve", "uk", "sentiment", "positioning", "news"]
 
 
 @pytest.fixture
 def data_dir(tmp_path):
-    for n in INPUTS + ["meta"]:
+    for n in list(context.INPUTS) + ["meta"]:
         shutil.copy(DATA / f"{n}.json", tmp_path / f"{n}.json")
     return tmp_path
 
@@ -27,20 +26,32 @@ def keys(monkeypatch):
     monkeypatch.setenv("GROQ_API_KEY", "gsk_FAKEFAKEFAKEFAKEFAKEFAKE1234")
 
 
+@pytest.fixture
+def no_keys(monkeypatch):
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    monkeypatch.delenv("GROQ_API_KEY", raising=False)
+
+
+@pytest.fixture
+def isolated_build(data_dir, monkeypatch):
+    monkeypatch.setattr(build, "OUT", data_dir)
+    monkeypatch.setattr(build, "load_dotenv", lambda: None)
+    return data_dir
+
+
 def first_news_id(d: Path) -> str:
     return context.news_digest(json.loads((d / "news.json").read_text(encoding="utf-8")))[0]["id"]
 
 
 def answer(news_id: str, extra: str = "") -> dict:
     return {
-        "brief": {"headline": "Growth firm, inflation steady" + extra,
+        "brief": {"headline": "Markets mixed as data firm" + extra,
                   "bullets": ["Growth indicators improved.", "Core inflation was little changed.", "Volatility is moderate."],
                   "what_moved": "Sector leadership rotated over the week.",
-                  "cycle_view": "Rules place the economy in the quadrant shown."},
+                  "cycle_view": "The rules place the economy in the regime shown in the panel."},
         "news_clusters": [{"topic": "Markets", "summary": "Headlines on stocks.", "tags": ["equities"],
                            "item_ids": [news_id]}],
-        "regime_explainer": {"rationale": "Growth score positive.", "asset_tendencies": ["Equities historically did well."],
-                             "caveats": ["Data are revised."]},
+        "regime_explainer": {"rationale": "The growth signal is positive.", "caveats": ["Data are revised."]},
     }
 
 
@@ -58,15 +69,25 @@ class ScriptedLLM:
 
 
 def test_happy_path_one_call(data_dir, keys, monkeypatch):
-    nid = first_news_id(data_dir)
-    fake = ScriptedLLM([answer(nid)])
+    fake = ScriptedLLM([answer(first_news_id(data_dir))])
     monkeypatch.setattr(insights.llm, "generate", fake)
     out = insights.build_insights(data_dir)
     assert isinstance(out, Insights) and len(fake.calls) == 1
     assert out.provider == "gemini" and out.disclaimer.startswith("AI-generated")
     assert out.news_clusters[0].items[0].url.startswith("http")  # ids resolved to links
-    assert out.regime.growth_inflation.quadrant is not None      # code-computed regime attached
-    assert out.regime.explainer.rationale == "Growth score positive."
+    assert out.regime_explainer.rationale == "The growth signal is positive."
+    assert out.regime_explainer.regime_label  # references the regime it explained
+    assert "regime" not in out.model_dump()   # the regime itself lives in regime.json
+    assert any("validate.py" in s["url"] for s in out.sources)
+
+
+def test_explainer_references_published_regime(isolated_build, keys, monkeypatch):
+    assert build.main(["--only", "regime"]) == 0
+    reg = json.loads((isolated_build / "regime.json").read_text())
+    monkeypatch.setattr(insights.llm, "generate", ScriptedLLM([answer(first_news_id(isolated_build))]))
+    out = insights.build_insights(isolated_build)
+    assert out.regime_explainer.regime_generated_at == reg["generated_at"]
+    assert out.regime_explainer.regime_label == reg["growth_inflation"]["label"]
 
 
 def test_retry_with_feedback_then_accept(data_dir, keys, monkeypatch):
@@ -76,7 +97,7 @@ def test_retry_with_feedback_then_accept(data_dir, keys, monkeypatch):
     out = insights.build_insights(data_dir)
     assert len(fake.calls) == 2 and fake.calls[0]["provider"] == fake.calls[1]["provider"]
     assert "REJECTED" not in fake.calls[0]["prompt"]
-    assert "REJECTED" in fake.calls[1]["prompt"] and '"9.87%"' in fake.calls[1]["prompt"]
+    assert "REJECTED" in fake.calls[1]["prompt"] and "9.87%" in fake.calls[1]["prompt"]
     assert "9.87" not in out.brief.headline
 
 
@@ -110,47 +131,76 @@ def test_unknown_news_id_is_rejected(data_dir, keys, monkeypatch):
     assert "not-a-real-id" in fake.calls[1]["prompt"]
 
 
-def test_no_keys_raises_before_any_call(data_dir, monkeypatch):
-    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
-    monkeypatch.delenv("GROQ_API_KEY", raising=False)
+def test_no_keys_raises_before_any_call(data_dir, no_keys, monkeypatch):
     monkeypatch.setattr(insights.llm, "generate", lambda *a, **k: pytest.fail("must not call the LLM"))
     with pytest.raises(llm.NoProviderAvailable):
         insights.build_insights(data_dir)
 
 
-def test_context_size_bound(data_dir):
-    d = context.build_digest(data_dir, compute_regime(context.load(data_dir, "economy"), context.load(data_dir, "markets")))
+def test_context_size_bound_and_units(data_dir):
+    inputs = context.load_inputs(data_dir)
+    d = context.build_digest(inputs, compute_regime(inputs["economy"], inputs["markets"]))
     assert context.approx_tokens(d) < 6000
     assert len(d["news"]) <= context.MAX_HEADLINES
-    for panel in d["markets"].values():
-        if isinstance(panel, dict):
-            assert all(len(panel[p]["top"]) <= 3 and len(panel[p]["bottom"]) <= 3 for p in ("1W", "1M"))
+    for name, panel in d["markets"].items():
+        if name == "index_snapshot":
+            continue
+        for p in ("1W", "1M"):
+            assert len(panel[p]["top"]) <= 3 and len(panel[p]["bottom"]) <= 3
+            assert all(("ret_pct" in r) != ("chg_bp" in r) for r in panel[p]["top"])  # unit in the key
     assert set(d) >= {"markets", "economy", "yield_curve", "uk", "sentiment", "positioning_extremes", "news", "regime"}
+    comp = d["regime"]["growth_inflation"]["growth"]["components"]
+    assert all(any(k.endswith(("_pct", "_pp", "_k")) for k in c) for c in comp)
 
 
-def test_build_skips_cleanly_without_keys(data_dir, monkeypatch):
-    monkeypatch.setattr(build, "OUT", data_dir)
-    monkeypatch.setattr(build, "load_dotenv", lambda: None)
-    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
-    monkeypatch.delenv("GROQ_API_KEY", raising=False)
-    (data_dir / "insights.json").write_text('{"previous": true}', encoding="utf-8")
-    assert build.main(["--only", "insights"]) == 0
-    assert json.loads((data_dir / "insights.json").read_text()) == {"previous": True}  # untouched
-    meta = json.loads((data_dir / "meta.json").read_text())["sections"]["insights"]
-    assert meta["ok"] is True and meta["skipped"] is True and "GEMINI_API_KEY" in meta["note"]
-
-
-def test_build_failure_keeps_previous_and_flags_stale(data_dir, keys, monkeypatch):
-    monkeypatch.setattr(build, "OUT", data_dir)
-    monkeypatch.setattr(build, "load_dotenv", lambda: None)
-    monkeypatch.setattr(insights.llm, "generate", ScriptedLLM([llm.LLMError("down")] * 3))
-    (data_dir / "insights.json").write_text('{"previous": true}', encoding="utf-8")
-    assert build.main(["--only", "insights"]) == 1
-    assert json.loads((data_dir / "insights.json").read_text()) == {"previous": True}
-    assert json.loads((data_dir / "meta.json").read_text())["sections"]["insights"]["ok"] is False
+def test_duplicated_values_carry_source(data_dir):
+    d = context.build_digest(context.load_inputs(data_dir))
+    assert d["economy"]["vix"]["source"] == "FRED" and "Yahoo" in d["sentiment"]["vix_term"]["source"]
+    assert d["yield_curve"]["source"].startswith("FRED")
+    assert all(r["source"] == "Yahoo Finance" and r["asof"] for r in d["markets"]["index_snapshot"])
 
 
 def test_etf_proxy_prices_not_in_digest(data_dir):
-    snap = context.build_digest(data_dir)["markets"]["index_snapshot_1D"]
-    by = {r["tag"]: r for r in snap}
+    by = {r["tag"]: r for r in context.build_digest(context.load_inputs(data_dir))["markets"]["index_snapshot"]}
     assert "level" not in by["SPY"] and "level" in by["INDEX"]  # SPY price ≠ S&P 500 level; VIX is a level
+
+
+@pytest.mark.parametrize("net,pct,text", [
+    (1000, 95, "most net long in 3y"), (-1000, 95, "least net short in 3y"),
+    (-1000, 5, "most net short in 3y"), (1000, 5, "least net long in 3y"),
+])
+def test_positioning_text_is_sign_aware(net, pct, text):
+    assert context.position_text(net, pct) == text
+
+
+def test_regime_section_runs_without_keys(isolated_build, no_keys):
+    assert build.main(["--only", "regime"]) == 0
+    reg = json.loads((isolated_build / "regime.json").read_text())
+    assert reg["growth_inflation"]["label"] and reg["methodology_url"].endswith("regime.py")
+    assert reg["tendencies"]["basis"].startswith("Greetham & Hartnett")
+    assert reg["sources"] and all(s["url"].startswith("http") for s in reg["sources"])
+    assert json.loads((isolated_build / "meta.json").read_text())["sections"]["regime"]["ok"] is True
+
+
+def test_regime_runs_before_insights_whatever_the_order(isolated_build, no_keys, monkeypatch):
+    order = []
+    monkeypatch.setattr(build, "build_regime", lambda out: order.append("regime") or {"generated_at": "x"})
+    monkeypatch.setattr(build, "build_insights", lambda out: order.append("insights") or {"generated_at": "x"})
+    build.main(["--only", "insights", "regime"])
+    assert order == ["regime", "insights"]
+
+
+def test_build_skips_cleanly_without_keys(isolated_build, no_keys):
+    (isolated_build / "insights.json").write_text('{"previous": true}', encoding="utf-8")
+    assert build.main(["--only", "insights"]) == 0
+    assert json.loads((isolated_build / "insights.json").read_text()) == {"previous": True}  # untouched
+    meta = json.loads((isolated_build / "meta.json").read_text())["sections"]["insights"]
+    assert meta["ok"] is True and meta["skipped"] is True and "GEMINI_API_KEY" in meta["note"]
+
+
+def test_build_failure_keeps_previous_and_flags_stale(isolated_build, keys, monkeypatch):
+    monkeypatch.setattr(insights.llm, "generate", ScriptedLLM([llm.LLMError("down")] * 4))
+    (isolated_build / "insights.json").write_text('{"previous": true}', encoding="utf-8")
+    assert build.main(["--only", "insights"]) == 1
+    assert json.loads((isolated_build / "insights.json").read_text()) == {"previous": True}
+    assert json.loads((isolated_build / "meta.json").read_text())["sections"]["insights"]["ok"] is False

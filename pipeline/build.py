@@ -21,6 +21,7 @@ import pandas as pd
 import yaml
 
 from .ai.insights import build_insights
+from .ai.regime_section import build_regime
 from .ai.llm import NoProviderAvailable
 from .fetchers import boe, cftc, cnn, earnings, fomc, fred, news, ons, yahoo
 from .fetchers.http import RedactingFilter, redact
@@ -542,9 +543,11 @@ def build_earnings() -> Earnings:
                     failed=failed, about=reg["about"], items=items)
 
 
-# "insights" must stay LAST: it reads the JSON the other sections just wrote.
+# "regime" then "insights" must stay LAST: they read the JSON the other sections just wrote.
+# regime is code only (no keys); insights adds LLM text on top of it.
 SECTIONS = ["markets", "economy", "yield_curve", "calendar", "uk", "positioning", "sentiment", "news", "earnings",
-            "insights"]
+            "regime", "insights"]
+DERIVED = ["regime", "insights"]
 EXTRA_BUILDERS = {  # independent sections: no inputs from other sections
     "uk": build_uk, "positioning": build_positioning, "sentiment": build_sentiment,
     "news": build_news, "earnings": build_earnings,
@@ -563,8 +566,8 @@ def main(argv=None) -> int:
         h.addFilter(RedactingFilter())
 
     sections = args.only or SECTIONS
-    if "insights" in sections:  # always after the data sections, whatever the --only order
-        sections = [s for s in sections if s != "insights"] + ["insights"]
+    # derived sections always run after the data sections, in this order, whatever the --only order
+    sections = [s for s in sections if s not in DERIVED] + [s for s in DERIVED if s in sections]
     meta_path = OUT / "meta.json"
     meta = json.loads(meta_path.read_text()) if meta_path.exists() else {"sections": {}}
     meta.setdefault("sections", {})
@@ -579,6 +582,8 @@ def main(argv=None) -> int:
                 model = economy = build_economy()
             elif name == "yield_curve":
                 model = build_yield_curve()
+            elif name == "regime":
+                model = build_regime(OUT)
             elif name == "insights":
                 model = build_insights(OUT)
             elif name in EXTRA_BUILDERS:

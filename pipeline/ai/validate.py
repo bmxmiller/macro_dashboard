@@ -153,9 +153,8 @@ def check_structure(out: Any, news_ids: set[str]) -> list[str]:
     else:
         if not _nonempty_str(r.get("rationale")):
             v.append("regime_explainer.rationale missing or empty")
-        for k in ("asset_tendencies", "caveats"):
-            if not _str_list(r.get(k), 1, 6):
-                v.append(f"regime_explainer.{k} must be 1-6 non-empty strings")
+        if not _str_list(r.get("caveats"), 1, 4):
+            v.append("regime_explainer.caveats must be 1-4 non-empty strings")
     return v
 
 

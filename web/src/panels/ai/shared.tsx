@@ -1,9 +1,10 @@
 import type { ReactNode } from "react";
+import { ExternalIcon } from "../../components/Icons";
 import { PanelMessage } from "../../components/Panel";
 import { useData } from "../../lib/data";
 import { relTime } from "../../lib/format";
 import { useStale } from "../../lib/stale";
-import type { Insights, Meta } from "../../types";
+import type { Insights, Meta, SourceLink } from "../../types";
 
 export const MISSING_MSG = "AI insights not generated yet. Add GEMINI_API_KEY / GROQ_API_KEY.";
 
@@ -14,13 +15,17 @@ export function useInsights() {
   const stale = useStale("insights");
   const sec = meta?.sections.insights;
   const note = sec?.skipped ? sec.note ?? null : null;
-  return { data, error, stale, note };
+  const missing = !data && !!error && error.startsWith("no data yet");
+  return { data, error: missing ? null : error, missing, stale, note };
 }
 
-/** Loading / missing / error states shared by the AI panels. Returns null when data is ready. */
-export function InsightsState({ data, error }: { data: Insights | null; error: string | null }): ReactNode {
-  if (data) return null;
-  if (error) return <PanelMessage>{error.startsWith("no data yet") ? MISSING_MSG : `Could not load data: ${error}`}</PanelMessage>;
+/** Loading / missing / error states. Returns null when data is ready. */
+export function LoadState({ ready, error, missing, missingMsg }: {
+  ready: boolean; error: string | null; missing: boolean; missingMsg: string;
+}): ReactNode {
+  if (ready) return null;
+  if (missing) return <PanelMessage>{missingMsg}</PanelMessage>;
+  if (error) return <PanelMessage>Could not load data: {error}</PanelMessage>;
   return <PanelMessage>Loading…</PanelMessage>;
 }
 
@@ -38,12 +43,41 @@ export function AiBadge({ data, note }: { data: Insights; note: string | null })
   );
 }
 
-export function Disclaimer({ text }: { text: string }) {
+/** "Data as of 14 Nov 2026, 07:59 UTC" from an ISO timestamp. */
+export function DataAsOf({ iso }: { iso: string | null | undefined }) {
+  if (!iso) return null;
+  const d = new Date(iso);
+  const txt = d.toLocaleString("en-GB", {
+    day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", timeZone: "UTC",
+  });
+  return <div className="px-3 pt-1 text-[10px]" style={{ color: "var(--muted)" }}>Data as of {txt} UTC</div>;
+}
+
+/** Source links for the About popover (Panel `aboutExtra`). */
+export function SourceList({ sources, methodologyUrl }: { sources: SourceLink[]; methodologyUrl?: string }) {
   return (
-    <p className="m-0 px-3 py-2 text-[10px] italic border-t" style={{ color: "var(--muted)", borderColor: "var(--border)" }}>
-      {text}
-    </p>
+    <div className="mt-2 text-[11px]">
+      <div className="font-bold mb-0.5" style={{ color: "var(--ink)" }}>Sources</div>
+      <ul className="m-0 pl-4 space-y-0.5">
+        {sources.map((s, i) => (
+          <li key={i}>
+            <a href={s.url} target="_blank" rel="noopener noreferrer" className="hover:underline inline-flex items-center gap-1"
+              style={{ color: "var(--ink-2)" }}>{s.label} <ExternalIcon /></a>
+          </li>
+        ))}
+        {methodologyUrl && (
+          <li>
+            <a href={methodologyUrl} target="_blank" rel="noopener noreferrer" className="hover:underline inline-flex items-center gap-1"
+              style={{ color: "var(--ink-2)" }}>Methodology (code and rules) <ExternalIcon /></a>
+          </li>
+        )}
+      </ul>
+    </div>
   );
+}
+
+export function Disclaimer({ text }: { text: string }) {
+  return <p className="m-0 px-3 pt-1 pb-2 text-[10px] italic" style={{ color: "var(--muted)" }}>{text}</p>;
 }
 
 export function SectionLabel({ children }: { children: ReactNode }) {

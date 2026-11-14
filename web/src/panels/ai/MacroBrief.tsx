@@ -1,25 +1,27 @@
 import { ExternalIcon } from "../../components/Icons";
 import { Panel } from "../../components/Panel";
 import type { About } from "../../types";
-import { AiBadge, Disclaimer, InsightsState, SectionLabel, useInsights } from "./shared";
+import { AiBadge, DataAsOf, Disclaimer, LoadState, MISSING_MSG, SectionLabel, SourceList, useInsights } from "./shared";
 
 const FALLBACK_ABOUT: About = {
   what: "A short, AI-written summary of today's dashboard data and clustered news headlines.",
   why: "It turns dozens of panels into a two-minute read.",
-  how_to_read: "Written by a free LLM from a digest of the published numbers; every number is checked against that digest before it is published. Not investment advice.",
+  how_to_read: "Written by a free LLM from a digest of the published numbers; an automatic fact check verifies every number, unit, direction and label before it is published. Not investment advice.",
 };
 
 /** AI macro brief: headline, bullets, what moved, cycle view and news clusters. */
 export function MacroBrief() {
-  const { data, error, stale, note } = useInsights();
+  const { data, error, missing, stale, note } = useInsights();
 
   return (
     <Panel id="macro_brief" title="AI Macro Brief" subtitle="Daily summary · AI-generated"
-      about={data?.about.brief ?? FALLBACK_ABOUT} stale={stale}>
-      <InsightsState data={data} error={error} />
+      about={data?.about ?? FALLBACK_ABOUT}
+      aboutExtra={data ? <SourceList sources={data.sources} /> : undefined} stale={stale}>
+      <LoadState ready={!!data} error={error} missing={missing} missingMsg={MISSING_MSG} />
       {data && (
         <>
           <AiBadge data={data} note={note} />
+          <DataAsOf iso={data.data_asof} />
           <h3 className="m-0 px-3 pt-2 text-[14px] font-extrabold leading-snug" style={{ color: "var(--ink)" }}>
             {data.brief.headline}
           </h3>
@@ -37,12 +39,12 @@ export function MacroBrief() {
             <>
               <SectionLabel>News themes</SectionLabel>
               <ul className="m-0 p-0 list-none">
-                {data.news_clusters.map((c) => (
-                  <li key={c.topic} className="px-3 py-2 border-t" style={{ borderColor: "var(--border)" }}>
+                {data.news_clusters.map((c, ci) => (
+                  <li key={`${ci}-${c.topic}`} className="px-3 py-2 border-t" style={{ borderColor: "var(--border)" }}>
                     <div className="flex flex-wrap items-baseline gap-1.5">
                       <span className="font-bold text-[12px]" style={{ color: "var(--ink)" }}>{c.topic}</span>
-                      {c.tags.map((t) => (
-                        <span key={t} className="text-[9.5px] font-semibold uppercase px-1 rounded-sm"
+                      {c.tags.map((t, ti) => (
+                        <span key={ti} className="text-[9.5px] font-semibold uppercase px-1 rounded-sm"
                           style={{ background: "var(--surface-2)", color: "var(--muted)" }}>{t}</span>
                       ))}
                     </div>
@@ -64,7 +66,7 @@ export function MacroBrief() {
               </ul>
             </>
           )}
-          <Disclaimer text={data.disclaimer} />
+          <div className="border-t mt-1" style={{ borderColor: "var(--border)" }}><Disclaimer text={data.disclaimer} /></div>
         </>
       )}
     </Panel>

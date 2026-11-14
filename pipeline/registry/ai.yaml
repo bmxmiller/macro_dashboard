@@ -35,12 +35,44 @@ endpoints:
   gemini: https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent
   groq: https://api.groq.com/openai/v1/chat/completions
 
+methodology_url: https://github.com/bmxmiller/macro_dashboard/blob/main/pipeline/ai/regime.py
+validator_url: https://github.com/bmxmiller/macro_dashboard/blob/main/pipeline/ai/validate.py
+
+# Sources behind the brief's digest (the regime panel lists its exact series from economy/markets.json).
+brief_sources:
+  - {label: "FRED (US economy, Treasury yields)", url: "https://fred.stlouisfed.org/"}
+  - {label: "Yahoo Finance (market returns)", url: "https://finance.yahoo.com/"}
+  - {label: "ONS / Bank of England (UK)", url: "https://www.ons.gov.uk/"}
+  - {label: "CFTC Commitments of Traders", url: "https://www.cftc.gov/MarketReports/CommitmentsofTraders/index.htm"}
+  - {label: "CNN Fear & Greed", url: "https://www.cnn.com/markets/fear-and-greed"}
+
 about:
   brief:
     what: "A short, AI-written summary of today's dashboard data (markets, economy, rates, UK, sentiment, positioning) and clustered news headlines."
     why: "It turns dozens of panels into a two-minute read: what moved, what it may mean for the cycle, and which stories are driving it."
-    how_to_read: "The pipeline builds a compact digest of the published numbers and asks a free LLM (Gemini, Groq as fallback) to narrate it. Every number in the text is checked against the digest; if the model invents one it is asked to fix it, and if it still fails the previous summary is kept. Treat it as a reading aid, not a forecast. Not investment advice."
+    how_to_read: "The pipeline builds a compact digest of the published numbers and asks a free LLM (Gemini, Groq as fallback) to narrate it. An automatic fact check then requires every number to match the digest exactly, with the right unit, the right direction (rose/fell) and the right metric (e.g. a number after 'core CPI' must be core CPI). It also rejects advice words (buy, sell, should…) and any regime name other than the computed one. A failing answer is sent back once with the errors, then the next provider is tried; if all fail, the previous summary is kept and marked stale. Treat it as a reading aid, not a forecast. Not investment advice."
   regime:
-    what: "Three rule-based macro 'regime' lenses, computed by code (not the AI): Growth × Inflation, Growth × Policy and Credit × Duration."
-    why: "Asset classes have historically behaved differently depending on whether growth and inflation are accelerating or slowing, whether policy is tight or loose, and whether credit or duration is leading."
-    how_to_read: "Growth × Inflation: the growth score averages (1) the 6-month change in Industrial Production YoY (±2pp = ±1), (2) inverted initial claims, 4-week vs 26-week average (a 10% rise = −1) and (3) real GDP QoQ SAAR vs a ~1.8% trend (±2pp = ±1). The inflation score averages the 6-month change in core CPI YoY and core PCE YoY (±1pp = ±1). Score > 0 means rising. Quadrants: Goldilocks (growth up, inflation down), Reflation (both up), Stagflation (growth down, inflation up), Deflationary slowdown (both down). Scores within ±0.1 are flagged borderline. Growth × Policy: real policy rate = Fed funds upper bound − core PCE YoY; above 1% is restrictive, below 0.5% accommodative, in between neutral. Credit × Duration: 3-month total return of HYG minus TLT and LQD minus IEF; an average above +0.5pp means credit is leading, below −0.5pp duration is leading, otherwise balanced. The AI text only explains these results; historical tendencies are generalisations, not predictions."
+    what: "Three rule-based macro 'regime' lenses, computed by code (not the AI): a Growth × Inflation momentum quadrant (Investment-Clock style), Growth × Policy, and Credit × Duration."
+    why: "Asset classes have historically behaved differently depending on whether growth and inflation are accelerating or decelerating, whether policy is tight or loose, and whether credit or duration is leading."
+    how_to_read: "Growth × Inflation shows the DIRECTION of change, not the level. Growth score = average of (1) the 6-month change in industrial production YoY (±2pp = ±1); (2) initial claims, 4-week average vs 26-week average, inverted (a 4-week average 10% above the 26-week average = −1; a sustained 10% jump in claims ≈ −0.83 because the 26-week average includes the recent weeks); (3) the 2-quarter change in real GDP YoY (±1pp = ±1). Inflation score = average 6-month change in core CPI YoY and core PCE YoY (±1pp = ±1). Each axis is accelerating at ≥ +0.1, decelerating at ≤ −0.1, otherwise flat (shown as a boundary between two quadrants). Quadrants: Goldilocks (growth up, inflation down), Inflationary boom (both up), Stagflation (growth down, inflation up), Disinflationary slowdown (both down). Growth × Policy: real policy rate = Fed funds target-range midpoint − core PCE YoY; above 1% restrictive, below 0.5% accommodative, otherwise neutral (within 0.15pp of an edge is borderline; r* itself is uncertain). Credit × Duration: 3-month total return of HYG minus IEI and LQD minus IEF (duration-matched); above +0.5pp credit leads, below −0.5pp duration leads, otherwise balanced, with the 3-month change in the high-yield spread as a cross-check. Inputs older than their release cycle are dropped and listed. Historical tendencies are code-written generalisations from the Investment Clock study, not forecasts; the AI only explains."
+
+# Code-authored, hedged generalisations. The LLM never writes these; it may only refer to them.
+regime_tendencies:
+  basis: "Greetham & Hartnett (2004), 'The Investment Clock', Merrill Lynch: average US asset-class and sector returns by growth/inflation phase, 1973–2004. Averages hide wide variation; past patterns are not forecasts."
+  quadrants:
+    Goldilocks:   # Investment Clock phase: Recovery
+      - {id: gl_equities, text: "Equities have historically tended to outperform bonds, commodities and cash in this phase."}
+      - {id: gl_cyclicals, text: "Cyclical and growth sectors have historically tended to lead defensive sectors."}
+      - {id: gl_commodities, text: "Commodities have historically tended to lag as inflation cools."}
+    Inflationary boom:   # Investment Clock phase: Overheat
+      - {id: ib_commodities, text: "Commodities have historically tended to be the strongest asset class in this phase."}
+      - {id: ib_bonds, text: "Government bonds have historically tended to lag as inflation and rate expectations rise."}
+      - {id: ib_value, text: "Cyclical value sectors such as industrials, materials and energy have historically tended to do relatively well."}
+    Stagflation:
+      - {id: st_cash, text: "Cash has historically tended to be the strongest asset class in this phase, and equities among the weakest."}
+      - {id: st_defensives, text: "Defensive sectors such as utilities and consumer staples have historically tended to hold up better than cyclicals."}
+      - {id: st_commodities, text: "Commodities have sometimes held up while inflation was rising, but results varied widely."}
+    Disinflationary slowdown:   # Investment Clock phase: Reflation
+      - {id: ds_bonds, text: "Government bonds have historically tended to be the strongest asset class in this phase."}
+      - {id: ds_commodities, text: "Commodities have historically tended to be the weakest asset class."}
+      - {id: ds_defensives, text: "Defensive growth sectors such as health care have historically tended to beat cyclicals."}
