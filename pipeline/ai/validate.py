@@ -508,10 +508,64 @@ def check_numbers(out: dict, digest: dict) -> list[str]:
     return v
 
 
+# ── Semantics: advice words, regime names, contradictions with the computed regime ──
+
+ADVICE = re.compile(
+    r"\b(?:buy|sell(?![- ]?off)|overweight|underweight|should|recommend\w*|always|every time|guarantee\w*)\b"
+    r"|\bwill\b(?:\s+\w+){0,4}?\s+(?:rise|fall|rally|drop|climb|decline|gain|outperform|underperform|hit|reach|"
+    r"surge|crash|rebound|go up|go down)\b",
+    re.IGNORECASE)
+QUADRANT_NAMES = ["Inflationary boom", "Goldilocks", "Stagflation", "Disinflationary slowdown",
+                  "Reflation", "Deflationary slowdown", "Overheat", "Recovery"]  # incl. legacy/Clock names
+_QUADRANT_RE = re.compile(r"\b(" + "|".join(re.escape(q) for q in QUADRANT_NAMES) + r")\b", re.IGNORECASE)
+_MOMENTUM_UP = r"(?:re-?accelerat\w*|accelerat\w*|picking up|improving|strengthening|heating up)"
+_MOMENTUM_DOWN = r"(?:decelerat\w*|slowing|cooling|easing|weakening|softening)"
+_MOMENTUM = re.compile(
+    r"\b(growth|inflation)(?:\s+(?:momentum|is|was|has|have|been|remains|keeps|continues|still|now|clearly))*\s+"
+    r"(?:(" + _MOMENTUM_UP + r")|(" + _MOMENTUM_DOWN + r"))\b", re.IGNORECASE)
+_STANCE = re.compile(
+    r"\bpolicy(?:\s+(?:is|was|remains|looks|stays|still|now|stance|moderately|mildly|clearly)){0,3}\s+"
+    r"(restrictive|tight|accommodative|loose|easy|neutral)\b", re.IGNORECASE)
+_STANCE_MAP = {"restrictive": "restrictive", "tight": "restrictive", "accommodative": "accommodative",
+               "loose": "accommodative", "easy": "accommodative", "neutral": "neutral"}
+_LEADER = re.compile(r"\b(credit|duration)(?:\s+(?:is|was|has been|remains|now)){0,2}\s+(?:leading|outperforming)\b",
+                     re.IGNORECASE)
+
+
+def check_semantics(out: dict, digest: dict) -> list[str]:
+    rg = digest.get("regime") or {}
+    gi = rg.get("growth_inflation") or {}
+    allowed = {q.lower() for q in gi.get("allowed_quadrants") or []}
+    states = {"growth": (gi.get("growth") or {}).get("state"), "inflation": (gi.get("inflation") or {}).get("state")}
+    stance = (rg.get("growth_policy") or {}).get("stance")
+    leader = (rg.get("credit_duration") or {}).get("leader")
+    v = []
+    for path, text in text_fields(out):
+        for m in ADVICE.finditer(text):
+            v.append(f'{path}: "{m.group(0)}": no advice or predictions (buy/sell/should/will…)')
+        if rg:
+            for m in _QUADRANT_RE.finditer(text):
+                if m.group(1).lower() not in allowed:
+                    v.append(f'{path}: regime "{m.group(1)}" is not the computed one '
+                             f'({" / ".join(gi.get("allowed_quadrants") or ["none"])})')
+            for m in _MOMENTUM.finditer(text):
+                axis, said = m.group(1).lower(), "accelerating" if m.group(2) else "decelerating"
+                actual = states.get(axis)
+                if actual and actual != said:
+                    v.append(f'{path}: "{m.group(0)}" contradicts the computed {axis} state ({actual})')
+            for m in _STANCE.finditer(text):
+                if stance and _STANCE_MAP[m.group(1).lower()] != stance:
+                    v.append(f'{path}: "{m.group(0)}" contradicts the computed policy stance ({stance})')
+            for m in _LEADER.finditer(text):
+                if leader and m.group(1).lower() != leader:
+                    v.append(f'{path}: "{m.group(0)}" contradicts the computed credit/duration result ({leader})')
+    return v
+
+
 def validate(out: Any, digest: dict) -> list[str]:
     """All violations (structure + numbers + semantics). Empty list = accept."""
     news_ids = {n["id"] for n in digest.get("news", [])}
     violations = check_structure(out, news_ids)
     if not isinstance(out, dict):
         return violations
-    return violations + check_numbers(out, digest)
+    return violations + check_numbers(out, digest) + check_semantics(out, digest)
