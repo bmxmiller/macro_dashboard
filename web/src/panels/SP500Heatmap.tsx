@@ -95,7 +95,8 @@ function Legend({ period }: { period: Period }) {
 /** Screen-reader alternative to the canvas: every company with its market cap and returns. */
 function DataTable({ rows, asof }: { rows: SP500Row[]; asof: string }) {
   return (
-    <table className="sr-only">
+    <div className="sr-only">   {/* wrapper, not the table: a table ignores overflow:hidden and widens the page */}
+    <table>
       <caption>S&amp;P 500 companies by market cap, price returns in percent, as of {asof}</caption>
       <thead>
         <tr>
@@ -113,6 +114,7 @@ function DataTable({ rows, asof }: { rows: SP500Row[]; asof: string }) {
         ))}
       </tbody>
     </table>
+    </div>
   );
 }
 
