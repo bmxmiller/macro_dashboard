@@ -204,3 +204,15 @@ def test_build_failure_keeps_previous_and_flags_stale(isolated_build, keys, monk
     assert build.main(["--only", "insights"]) == 1
     assert json.loads((isolated_build / "insights.json").read_text()) == {"previous": True}
     assert json.loads((isolated_build / "meta.json").read_text())["sections"]["insights"]["ok"] is False
+
+
+def test_failure_after_skip_clears_the_no_key_note(isolated_build, keys, monkeypatch):
+    meta = json.loads((isolated_build / "meta.json").read_text())
+    meta["sections"]["insights"] = {"ok": True, "skipped": True, "note": "Skipped: no LLM key set",
+                                    "checked_at": "x", "updated_at": "2026-11-01T00:00:00+00:00"}
+    (isolated_build / "meta.json").write_text(json.dumps(meta))
+    monkeypatch.setattr(insights.llm, "generate", ScriptedLLM([llm.LLMError("down")] * 4))
+    assert build.main(["--only", "insights"]) == 1
+    sec = json.loads((isolated_build / "meta.json").read_text())["sections"]["insights"]
+    assert sec["ok"] is False and "skipped" not in sec and "note" not in sec
+    assert sec["updated_at"] == "2026-11-01T00:00:00+00:00"  # last good output time is kept

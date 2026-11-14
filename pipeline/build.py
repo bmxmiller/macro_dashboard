@@ -607,7 +607,9 @@ def main(argv=None) -> int:
             err = redact(f"{type(e).__name__}: {e}")
             log.error("section %s failed: %s", name, err)
             log.debug(redact(traceback.format_exc()))
-            prev = meta["sections"].get(name, {})
+            # Drop a previous run's "skipped"/"note" (e.g. "no LLM key"): it no longer applies.
+            prev = {k: v for k, v in meta["sections"].get(name, {}).items()
+                    if k not in ("skipped", "note", "checked_at")}
             # meta.json is PUBLIC (committed + deployed): only ever store redacted text.
             meta["sections"][name] = {**prev, "ok": False, "error": err[:300], "failed_at": now_iso()}
 
