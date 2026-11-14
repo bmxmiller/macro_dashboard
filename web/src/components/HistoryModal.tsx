@@ -106,9 +106,12 @@ export function HistoryModal({ metric, recessions, onClose }: {
               </button>
             ))}
             <span className="ml-auto text-[10px] flex items-center gap-1.5" style={{ color: "var(--muted)" }}>
-              <span aria-hidden className="inline-block w-3 h-2.5 rounded-sm"
-                style={{ background: "color-mix(in oklab, var(--muted) 30%, transparent)" }} />
-              NBER recession · scroll to zoom
+              {recessions.length > 0 && <>
+                <span aria-hidden className="inline-block w-3 h-2.5 rounded-sm"
+                  style={{ background: "color-mix(in oklab, var(--muted) 30%, transparent)" }} />
+                NBER recession ·{" "}
+              </>}
+              scroll to zoom
             </span>
           </div>
           <LazyEChart build={build} className="w-full h-[320px]"

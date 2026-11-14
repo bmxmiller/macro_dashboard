@@ -10,6 +10,7 @@ export interface PanelProps {
   title: string;
   subtitle?: ReactNode;
   about?: About;
+  aboutExtra?: ReactNode;         // extra content at the foot of the panel's About card
   sourceUrl?: string;
   stale?: string | null;          // error message when the pipeline section failed
   headerRight?: ReactNode;
@@ -18,7 +19,7 @@ export interface PanelProps {
 }
 
 /** The shared shell: header bar, About, PNG export, hide, stale badge. */
-export function Panel({ id, title, subtitle, about, sourceUrl, stale, headerRight, className = "", children }: PanelProps) {
+export function Panel({ id, title, subtitle, about, aboutExtra, sourceUrl, stale, headerRight, className = "", children }: PanelProps) {
   const ref = useRef<HTMLElement>(null);
   const toggle = useSettings((s) => s.togglePanel);
   const [busy, setBusy] = useState(false);
@@ -60,7 +61,7 @@ export function Panel({ id, title, subtitle, about, sourceUrl, stale, headerRigh
         )}
         {headerRight}
         <div className="flex items-center gap-0.5 header-actions" data-no-export>
-          {about && <AboutButton title={title} about={about} sourceUrl={sourceUrl} />}
+          {about && <AboutButton title={title} about={about} sourceUrl={sourceUrl} extra={aboutExtra} />}
           <button type="button" className="icon-btn" aria-label={`Export ${title} as PNG`} title="Export PNG"
             onClick={exportPng} disabled={busy}><DownloadIcon /></button>
           <button type="button" className="icon-btn" aria-label={`Hide ${title}`} title="Hide panel"

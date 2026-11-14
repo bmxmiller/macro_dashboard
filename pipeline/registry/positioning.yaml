@@ -80,4 +80,4 @@ markets:
     about:
       what: Net position of leveraged funds in CME bitcoin futures (5 BTC per contract).
       why: Shows how institutional speculators are positioned in regulated bitcoin futures.
-      how_to_read: Leveraged funds are usually net short because they sell futures against long spot bitcoin or ETF holdings to earn the futures premium (a cash-and-carry basis trade). A shrinking short often means the basis has compressed, not that funds have turned bearish.
+      how_to_read: Leveraged funds are usually net short because they sell futures against long spot bitcoin or ETF holdings to earn the futures premium (a cash-and-carry basis trade). A shrinking short often means the basis has compressed, not that funds have turned bullish.
