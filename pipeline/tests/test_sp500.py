@@ -74,6 +74,9 @@ def test_registry_is_well_formed():
     comps = reg["companies"]
     tickers = [c["t"] for c in comps]
     assert 490 <= len(tickers) <= 520
+    # one row per company: Yahoo returns the company-wide share count for every class ticker
+    assert not {"GOOG", "FOX", "NWS"} & set(tickers), "second share class would double count the company"
+    assert not any("(Class" in c["name"] for c in comps)
     assert len(tickers) == len(set(tickers)), "duplicate ticker"
     assert all(set(c) == {"t", "name", "sector"} for c in comps)
     assert not any("." in t for t in tickers), "Yahoo tickers use '-' (BRK-B), not '.'"
@@ -81,3 +84,23 @@ def test_registry_is_well_formed():
         "Communication Services", "Consumer Discretionary", "Consumer Staples", "Energy", "Financials",
         "Health Care", "Industrials", "Information Technology", "Materials", "Real Estate", "Utilities"}
     assert set(reg["about"]) == {"what", "why", "how_to_read"}
+
+
+def test_stale_share_tickers_flags_a_split_not_noise():
+    idx = pd.bdate_range("2026-11-01", periods=10)
+    close = pd.DataFrame({
+        "SPLIT": [10.0] * 10,        # 10-for-1 split: history rescaled from 100 to 10
+        "NOISE": [100.5] * 10,       # 0.5% revision of an old close
+        "SAME": [50.0] * 10,
+    }, index=idx)
+    prev = {"SPLIT": 100.0, "NOISE": 100.0, "SAME": 50.0, "GONE": 5.0}   # GONE is not in the download
+    assert sp500.stale_share_tickers(prev, idx[5].strftime("%Y-%m-%d"), close) == ["SPLIT"]
+    assert sp500.stale_share_tickers(prev, None, close) == []
+
+
+def test_build_rows_drops_row_whose_last_price_is_older_than_the_latest_date():
+    close = _close()
+    close.loc[close.index[-1], "BBB"] = float("nan")     # BBB has no bar on the latest date
+    rows, failed = sp500.build_rows(COMPANIES[:2], close, {"AAA": 1e9, "BBB": 1e9})
+    assert [r["t"] for r in rows] == ["AAA"]
+    assert failed == ["BBB"]

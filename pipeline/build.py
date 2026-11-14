@@ -554,13 +554,21 @@ def build_sp500() -> SP500:
     # Saturday (the full rebuild) and otherwise only fetch the ones we don't have cached yet.
     prev_path = OUT / "sp500.json"
     cached: dict[str, float] = {}
+    prev_prices: dict[str, float] = {}
+    prev_asof = None
     if prev_path.exists():
         try:
-            cached = {r["t"]: float(r["shares"]) for r in json.loads(prev_path.read_text(encoding="utf-8"))["rows"]}
+            prev = json.loads(prev_path.read_text(encoding="utf-8"))
+            cached = {r["t"]: float(r["shares"]) for r in prev["rows"]}
+            prev_prices = {r["t"]: float(r["price"]) for r in prev["rows"]}
+            prev_asof = prev["asof"]
         except (ValueError, KeyError, TypeError):
             log.warning("sp500.json unreadable, refetching all share counts")
     refresh_all = datetime.now(timezone.utc).weekday() == 5 or not cached
-    need = tickers if refresh_all else [t for t in tickers if t not in cached]
+    split_suspects = [] if refresh_all else sp500_tx.stale_share_tickers(prev_prices, prev_asof, close)
+    if split_suspects:
+        log.warning("sp500: possible stock split, refetching shares for: %s", ", ".join(split_suspects))
+    need = tickers if refresh_all else [t for t in tickers if t not in cached or t in split_suspects]
     fresh = sp500.fetch_shares(need) if need else {}
     shares = {**cached, **fresh}  # a failed refresh keeps the cached count
 

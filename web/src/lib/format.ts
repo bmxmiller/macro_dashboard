@@ -15,6 +15,11 @@ function perfMix(v: number, period: Period, mode: "pct" | "diff"): { pole: "pos"
   return { pole: v >= 0 ? "pos" : "neg", pct: Math.round(8 + Math.sqrt(t) * 62) }; // 8% → 70%; sqrt lifts small moves
 }
 
+/** |return| (in %) at which the colour for this period is fully saturated: the legend's end labels. */
+export function perfScale(period: Period): number {
+  return SCALE[period];
+}
+
 /** Diverging background: neutral midpoint → pos/neg pole, intensity ∝ |v|. */
 export function perfBg(v: number | null | undefined, period: Period, mode: "pct" | "diff" = "pct"): string {
   if (v == null || Number.isNaN(v)) return "transparent";
@@ -41,7 +46,7 @@ export function perfColor(
   const { pole, pct } = perfMix(v, period, "pct");
   const p = hexToRgb(colors[pole]);
   if (!p) return colors.mid;
-  const k = pct / 100;
+  const k = Math.min(pct, 62) / 100;   // capped below perfBg's 70% so ink labels keep >= 4.5:1 contrast on canvas cells
   const [r, g, b] = p.map((c, i) => Math.round(c * k + mid[i] * (1 - k)));
   return `rgb(${r},${g},${b})`;
 }

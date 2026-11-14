@@ -5,7 +5,7 @@ import math
 
 import pandas as pd
 
-from .returns import period_returns
+from .returns import period_returns, value_on_or_before
 
 
 def market_cap_bn(shares: float | None, price: float | None) -> float | None:
@@ -17,19 +17,43 @@ def market_cap_bn(shares: float | None, price: float | None) -> float | None:
     return round(shares * price / 1e9, 2)
 
 
+def stale_share_tickers(prev_prices: dict[str, float], prev_asof: str | None, close: pd.DataFrame,
+                        tol: float = 0.05) -> list[str]:
+    """Tickers whose cached share count is probably out of date because of a stock split.
+
+    Closes are split-adjusted, so after a split the history is rescaled: yesterday's close in
+    the NEW download no longer matches the price we published for that day. A mismatch beyond
+    `tol` means the cached share count (which was not split-adjusted) must be refetched now
+    instead of waiting for the weekly refresh. Ordinary price revisions are far below 5%.
+    """
+    if not prev_asof:
+        return []
+    when = pd.Timestamp(prev_asof)
+    out: list[str] = []
+    for t, old in prev_prices.items():
+        if t not in close or not old:
+            continue
+        new = value_on_or_before(close[t].dropna(), when)
+        if new and abs(old / new - 1) > tol:
+            out.append(t)
+    return out
+
+
 def build_rows(companies: list[dict], close: pd.DataFrame, shares: dict[str, float]) -> tuple[list[dict], list[str]]:
     """One row per constituent with a price and a market cap.
 
-    Returns (rows, failed). A company with no price history, or no share count (so no
-    market cap and nothing to size its rectangle by), is listed in `failed` and left out.
-    Returns are PRICE returns on unadjusted (split-adjusted) closes.
+    Returns (rows, failed). A company with no price history, no share count (so no market cap
+    and nothing to size its rectangle by), or whose last price is older than the latest date in
+    the download (halted, or a Yahoo gap: its 1D return and cap would be from a different day)
+    is listed in `failed` and left out. Returns are PRICE returns on unadjusted (split-adjusted) closes.
     """
+    latest = close.dropna(how="all").index[-1] if not close.dropna(how="all").empty else None
     rows: list[dict] = []
     failed: list[str] = []
     for c in companies:
         t = c["t"]
         s = close[t].dropna() if t in close else pd.Series(dtype=float)
-        if s.empty:
+        if s.empty or s.index[-1] != latest:
             failed.append(t)
             continue
         price = float(s.iloc[-1])

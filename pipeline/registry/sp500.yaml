@@ -1,8 +1,10 @@
 # S&P 500 heat map: committed snapshot of the index constituents (ticker, name, GICS sector).
 # Snapshot taken 2026-11-14 from Wikipedia's "List of S&P 500 companies" (not an official feed,
 # so review it after index rebalances: S&P Dow Jones Indices announces changes quarterly).
-# Yahoo tickers (BRK-B, not BRK.B). Both share classes are kept where a company has two
-# (GOOGL/GOOG, FOXA/FOX, NWSA/NWS): each class has its own market cap.
+# Yahoo tickers (BRK-B, not BRK.B). Companies with two listed classes (Alphabet GOOGL/GOOG,
+# Fox FOXA/FOX, News Corp NWSA/NWS) appear ONCE, under the first class: Yahoo reports the
+# company-wide share count for every class ticker, so listing both would count the company
+# twice. The rectangle is company-wide shares x the first class's price.
 
 chunk_size: 100
 max_missing_share: 0.15   # fail the section (keep last good JSON) if more than this share has no price
@@ -10,7 +12,7 @@ max_missing_share: 0.15   # fail the section (keep last good JSON) if more than 
 about:
   what: A treemap of the S&P 500. Each rectangle is one company, sized by market capitalisation (shares outstanding x last close) and grouped by GICS sector. The colour shows its price return over the selected period.
   why: The index is cap-weighted, so a handful of mega-caps move it far more than the other 490. The map shows at a glance whether a rally or sell-off is broad or driven by a few names, and which sectors are leading.
-  how_to_read: Bigger rectangle = bigger weight in the index. Green is a gain and red a loss (the signed % in each label carries the same information), with a deeper shade for a larger move. Returns are price returns, not total returns, so dividends are excluded. Market cap uses Yahoo's latest share count, so it can lag buybacks or new issuance. Switch the period at the top of the dashboard.
+  how_to_read: Bigger rectangle = bigger weight in the index (approximately, because the index itself is float-adjusted, so companies with large insider or controlling holdings carry less index weight than their full market cap suggests). Green is a gain and red a loss (the signed % in each label carries the same information), with a deeper shade for a larger move. Returns are price returns, not total returns, so dividends are excluded. Market cap uses Yahoo's latest share count, so it can lag buybacks or new issuance. Companies with two listed share classes (Alphabet, Fox, News Corp) are shown once, sized on their combined market cap. Companies with unlisted classes or operating units (for example Interactive Brokers, TKO, Blackstone) are sized on their listed shares only, so they can look smaller than Yahoo's headline company cap; that is closer to how the index weights them. Switch the period at the top of the dashboard.
 
 source_url: https://www.spglobal.com/spdji/en/indices/equity/sp-500/
 
@@ -34,8 +36,7 @@ companies:
   - {t: "ALLE", name: "Allegion", sector: Industrials}
   - {t: "LNT", name: "Alliant Energy", sector: Utilities}
   - {t: "ALL", name: "Allstate", sector: Financials}
-  - {t: "GOOGL", name: "Alphabet Inc. (Class A)", sector: Communication Services}
-  - {t: "GOOG", name: "Alphabet Inc. (Class C)", sector: Communication Services}
+  - {t: "GOOGL", name: "Alphabet", sector: Communication Services}
   - {t: "MO", name: "Altria", sector: Consumer Staples}
   - {t: "AMZN", name: "Amazon", sector: Consumer Discretionary}
   - {t: "AMCR", name: "Amcor", sector: Materials}
@@ -218,8 +219,7 @@ companies:
   - {t: "F", name: "Ford Motor Company", sector: Consumer Discretionary}
   - {t: "FTNT", name: "Fortinet", sector: Information Technology}
   - {t: "FTV", name: "Fortive", sector: Industrials}
-  - {t: "FOXA", name: "Fox Corporation (Class A)", sector: Communication Services}
-  - {t: "FOX", name: "Fox Corporation (Class B)", sector: Communication Services}
+  - {t: "FOXA", name: "Fox Corporation", sector: Communication Services}
   - {t: "BEN", name: "Franklin Resources", sector: Financials}
   - {t: "FCX", name: "Freeport-McMoRan", sector: Materials}
   - {t: "GRMN", name: "Garmin", sector: Consumer Discretionary}
@@ -344,8 +344,7 @@ companies:
   - {t: "NTAP", name: "NetApp", sector: Information Technology}
   - {t: "NFLX", name: "Netflix", sector: Communication Services}
   - {t: "NEM", name: "Newmont", sector: Materials}
-  - {t: "NWSA", name: "News Corp (Class A)", sector: Communication Services}
-  - {t: "NWS", name: "News Corp (Class B)", sector: Communication Services}
+  - {t: "NWSA", name: "News Corp", sector: Communication Services}
   - {t: "NEE", name: "NextEra Energy", sector: Utilities}
   - {t: "NKE", name: "Nike, Inc.", sector: Consumer Discretionary}
   - {t: "NI", name: "NiSource", sector: Utilities}
