@@ -1,0 +1,46 @@
+# AI insights: LLM provider config. Free tiers only (£0). Called from the pipeline, never the browser.
+#
+# Providers are tried in this order. A provider is skipped when its key env var is unset.
+# Model ids change often: check before bumping.
+#   Gemini models + free tier: https://ai.google.dev/gemini-api/docs/models  (pricing page: "Free of charge")
+#                              https://aistudio.google.com/rate-limit        (per-project RPM/RPD)
+#   Groq models:               https://console.groq.com/docs/models
+# One build makes 1 call (2–4 on a validation retry / fallback), far inside any free daily quota.
+# Fallback order. Reorder (e.g. [groq, gemini]) to change the primary: no code change needed.
+# Providers whose key env var is unset are skipped silently (info log only).
+order: [gemini, groq]
+
+providers:
+  gemini:
+    key_env: GEMINI_API_KEY
+    # tried in order; same key, separate per-model quota, so the lite model survives a 429 on the primary
+    # Pinned names (not "-latest") for reproducibility. 2026-11-14: gemini-2.5-flash is still LISTED by
+    # GET /v1beta/models but generateContent returns 404 "no longer available to new users. Please
+    # use models/gemini-3.8-flash". Docs list 3.8-flash and 3.5-flash-lite as free-tier stable models.
+    models: [gemini-3.8-flash, gemini-3.5-flash-lite]
+    response_schema: true          # send responseSchema (structured output); false = JSON mode only
+  groq:
+    key_env: GROQ_API_KEY
+    # Checked 2026-11-14 via GET /openai/v1/models: Llama chat models are no longer served to this
+    # account (llama-3.3-70b-versatile → 404 model_not_found); gpt-oss supports json_object mode.
+    models: [openai/gpt-oss-120b, openai/gpt-oss-20b]
+
+temperature: 0.3
+max_output_tokens: 8192            # Gemini 3.x "thinking" tokens count toward this, so leave headroom
+timeout_seconds: 90
+retries: 2                         # extra attempts per provider on 429 / 5xx / timeout / bad JSON
+retry_backoff_seconds: 4           # doubled each retry
+
+endpoints:
+  gemini: https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent
+  groq: https://api.groq.com/openai/v1/chat/completions
+
+about:
+  brief:
+    what: "A short, AI-written summary of today's dashboard data (markets, economy, rates, UK, sentiment, positioning) and clustered news headlines."
+    why: "It turns dozens of panels into a two-minute read: what moved, what it may mean for the cycle, and which stories are driving it."
+    how_to_read: "The pipeline builds a compact digest of the published numbers and asks a free LLM (Gemini, Groq as fallback) to narrate it. Every number in the text is checked against the digest; if the model invents one it is asked to fix it, and if it still fails the previous summary is kept. Treat it as a reading aid, not a forecast. Not investment advice."
+  regime:
+    what: "Three rule-based macro 'regime' lenses, computed by code (not the AI): Growth × Inflation, Growth × Policy and Credit × Duration."
+    why: "Asset classes have historically behaved differently depending on whether growth and inflation are accelerating or slowing, whether policy is tight or loose, and whether credit or duration is leading."
+    how_to_read: "Growth × Inflation: the growth score averages (1) the 6-month change in Industrial Production YoY (±2pp = ±1), (2) inverted initial claims, 4-week vs 26-week average (a 10% rise = −1) and (3) real GDP QoQ SAAR vs a ~1.8% trend (±2pp = ±1). The inflation score averages the 6-month change in core CPI YoY and core PCE YoY (±1pp = ±1). Score > 0 means rising. Quadrants: Goldilocks (growth up, inflation down), Reflation (both up), Stagflation (growth down, inflation up), Deflationary slowdown (both down). Scores within ±0.1 are flagged borderline. Growth × Policy: real policy rate = Fed funds upper bound − core PCE YoY; above 1% is restrictive, below 0.5% accommodative, in between neutral. Credit × Duration: 3-month total return of HYG minus TLT and LQD minus IEF; an average above +0.5pp means credit is leading, below −0.5pp duration is leading, otherwise balanced. The AI text only explains these results; historical tendencies are generalisations, not predictions."

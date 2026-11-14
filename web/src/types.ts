@@ -54,7 +54,10 @@ export interface Calendar { generated_at: string; complete: boolean; note?: stri
 
 export interface Meta {
   generated_at: string;
-  sections: Record<string, { ok: boolean; updated_at?: string; error?: string; failed_at?: string }>;
+  sections: Record<string, {
+    ok: boolean; updated_at?: string; error?: string; failed_at?: string;
+    skipped?: boolean; note?: string; checked_at?: string; // e.g. insights without an LLM key
+  }>;
 }
 
 // ── UK (uk.json): same row shape as economy metrics ────────────────────────
@@ -129,4 +132,44 @@ export interface EarningsItem {
 export interface Earnings {
   generated_at: string; window_days: number; universe_size: number;
   failed: string[]; about: About; items: EarningsItem[];
+}
+
+// ── AI insights (insights.json) ────────────────────────────────────────────
+// Regime numbers are computed by code (pipeline/ai/regime.py); brief, news_clusters
+// and regime.explainer are LLM text that passed the grounded-number check.
+// meta.sections.insights may be { ok: true, skipped: true, note } when no LLM key is set.
+export interface InsightsBrief { headline: string; bullets: string[]; what_moved: string; cycle_view: string }
+export interface InsightsNewsLink { id: string; title: string; url: string; source: string }
+export interface InsightsNewsCluster {
+  topic: string; summary: string; tags: string[]; item_ids: string[];
+  items: InsightsNewsLink[]; // resolved at build time from news.json
+}
+export interface RegimeComponent {
+  id: string; label: string; value: number | null; units: string; score: number | null;
+  detail: Record<string, number | null>;
+}
+export interface RegimeSignal { score: number | null; direction: "up" | "down" | null; components: RegimeComponent[] }
+export type Quadrant = "Reflation" | "Goldilocks" | "Stagflation" | "Deflationary slowdown";
+export interface GrowthInflation { quadrant: Quadrant | null; growth: RegimeSignal; inflation: RegimeSignal; borderline: boolean }
+export interface GrowthPolicy {
+  label: string | null; stance: "restrictive" | "neutral" | "accommodative" | null;
+  real_rate: number | null; fed_funds?: number | null; core_pce?: number | null;
+  neutral_band: number[]; growth_direction: "up" | "down" | null;
+}
+export interface CreditPair { long: string; short: string; long_ret: number; short_ret: number; spread: number }
+export interface CreditDuration {
+  label: string | null; leader: "credit" | "duration" | "balanced" | null;
+  score: number | null; period: string; pairs: CreditPair[];
+}
+export interface RegimeExplainer { rationale: string; asset_tendencies: string[]; caveats: string[] }
+export interface Insights {
+  generated_at: string; provider: string; model: string; data_asof: string | null;
+  about: { brief?: About; regime?: About };
+  brief: InsightsBrief;
+  news_clusters: InsightsNewsCluster[];
+  regime: {
+    growth_inflation: GrowthInflation; growth_policy: GrowthPolicy;
+    credit_duration: CreditDuration; explainer: RegimeExplainer;
+  };
+  disclaimer: string;
 }
