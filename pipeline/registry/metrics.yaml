@@ -299,6 +299,7 @@ metrics:
     name: Fed Funds Upper Target
     source: fred
     series: DFEDTARU
+    step: true  # prev = last different value, so a rate move stays visible
     transform: level
     units: "%"
     decimals: 2

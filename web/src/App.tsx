@@ -45,7 +45,7 @@ export default function App() {
         ))}
       </main>
       <footer className="px-4 py-3 text-[10.5px] border-t" style={{ color: "var(--muted)", borderColor: "var(--border)" }}>
-        Data: FRED, Yahoo Finance, Federal Reserve. Total returns include dividends. Not investment advice.
+        Data: FRED, Yahoo Finance, Federal Reserve, ONS, Bank of England, CFTC, CNN, Cboe and public news feeds. Total returns include dividends. Not investment advice.
       </footer>
     </div>
   );

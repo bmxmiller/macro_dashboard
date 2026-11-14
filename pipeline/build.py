@@ -161,25 +161,8 @@ def build_economy() -> Economy:
         except Exception as e:  # noqa: BLE001
             log.warning("metric %s failed: %s", m["id"], e)
             continue
-        last_d = s.index[-1]
-        ya =s.loc[:last_d - pd.DateOffset(years=1)]
         primary = m.get("series") or m["numerator"]
-        out.append({
-            "id": m["id"], "group": m["group"], "name": m["name"], "units": m["units"],
-            "decimals": m["decimals"], "good": m["good"], "frequency": m["frequency"],
-            "value": round(float(s.iloc[-1]), 4),
-            "date": last_d.strftime("%Y-%m-%d"),
-            "period_label": econ.period_label(last_d, m["frequency"]),
-            "prev": round(float(s.iloc[-2]), 4) if len(s) > 1 else None,
-            "change": round(float(s.iloc[-1] - s.iloc[-2]), 4) if len(s) > 1 else None,
-            "year_ago": round(float(ya.iloc[-1]), 4) if not ya.empty else None,
-            "zscore": econ.zscore(s),
-            "percentile": econ.percentile(s),
-            "history": econ.history(s),
-            "about": m["about"],
-            "source_url": m["source_url"],
-            "data_url": fred.series_url(primary),
-        })
+        out.append(_metric_row(m, s, fred.series_url(primary)))
 
     usrec = raw.get("USREC")
     recs = recession_periods(usrec) if isinstance(usrec, pd.Series) else []
@@ -332,18 +315,23 @@ def build_calendar(economy: Economy | None) -> Calendar:
 
 # ── UK ─────────────────────────────────────────────────────────────────────
 
-def _metric_row(m: dict, s: pd.Series, data_url: str) -> dict:
-    """Same row shape as build_economy() so the front-end can reuse the indicator row."""
+def _metric_row(m: dict, s: pd.Series, data_url: str, period_label: str | None = None) -> dict:
+    """One indicator row (shared by the economy and UK sections).
+
+    `step: true` in the registry marks policy-rate series: prev is then the last
+    value different from the current one (see econ.prev_and_change).
+    """
     last_d = s.index[-1]
     ya = s.loc[:last_d - pd.DateOffset(years=1)]
+    prev, change = econ.prev_and_change(s, step=bool(m.get("step")))
     return {
         "id": m["id"], "group": m["group"], "name": m["name"], "units": m["units"],
         "decimals": m["decimals"], "good": m["good"], "frequency": m["frequency"],
         "value": round(float(s.iloc[-1]), 4),
         "date": last_d.strftime("%Y-%m-%d"),
-        "period_label": econ.period_label(last_d, m["frequency"]),
-        "prev": round(float(s.iloc[-2]), 4) if len(s) > 1 else None,
-        "change": round(float(s.iloc[-1] - s.iloc[-2]), 4) if len(s) > 1 else None,
+        "period_label": period_label or econ.period_label(last_d, m["frequency"]),
+        "prev": prev,
+        "change": change,
         "year_ago": round(float(ya.iloc[-1]), 4) if not ya.empty else None,
         "zscore": econ.zscore(s),
         "percentile": econ.percentile(s),
@@ -398,9 +386,13 @@ def build_uk() -> UK:
     for m in metrics:
         try:
             src = m["source"]
+            label = None
             if src == "ons":
                 raw = ons.fetch_series(m["uri"], m["frequency"], m.get("alt_uris"))
                 url = ons.series_url(m["uri"])
+                window = m.get("window_months") or raw.attrs.get("window_months")
+                if window:  # rolling 3-month average: label the whole window
+                    label = ons.window_label(raw.index[-1], int(window))
             elif src == "boe":
                 raw, url = from_iadb(m["series"]), boe.series_url(m["series"])
             elif src == "boe_glc":
@@ -421,7 +413,9 @@ def build_uk() -> UK:
             s = econ.apply_transform({**m, "series": m["id"]}, {m["id"]: raw})
             if s.empty:
                 raise ValueError("empty series")
-            out.append(_metric_row(m, s, url))
+            if label and s.index[-1] != raw.index[-1]:
+                label = None  # transform shifted the last date; fall back to the plain label
+            out.append(_metric_row(m, s, url, label))
         except Exception as e:  # noqa: BLE001
             log.warning("uk metric %s failed: %s", m["id"], e)
     if not out:
@@ -513,7 +507,7 @@ def build_sentiment() -> Sentiment:
 
 def build_news() -> News:
     reg = load_yaml("news.yaml")
-    compiled = news.compile_rules(reg["tag_rules"])
+    compiled = news.compile_rules(reg["tag_rules"], reg.get("tag_exclude"))
     now = datetime.now(timezone.utc)
     cutoff = now - pd.Timedelta(hours=reg["window_hours"])
     all_items, sources = [], []

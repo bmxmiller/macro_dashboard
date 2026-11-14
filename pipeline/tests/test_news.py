@@ -69,3 +69,31 @@ def test_select_items_window_dedupe_caps_and_order():
     out = news.select_items(items, now, window_hours=72, max_items=10, max_per_feed=2)
     assert [i["title"] for i in out] == ["A", "B", "Fed holds rates"]
     assert len(news.select_items(items, now, 72, 1, 10)) == 1
+
+
+def _rss(title_bytes: bytes, encoding: str) -> bytes:
+    return (b'<?xml version="1.0" encoding="' + encoding.encode() + b'"?><rss version="2.0"><channel><title>t</title>'
+            b"<item><title>" + title_bytes + b"</title><link>https://ex.com/n</link>"
+            b"<pubDate>Fri, 13 Nov 2026 10:00:00 GMT</pubDate></item></channel></rss>")
+
+
+def test_parse_feed_repairs_misdeclared_encodings():
+    feed = {"id": "x", "source": "X", "tags": []}
+    want = "Nvidia\u2019s stock slides"
+    # Declared us-ascii but the bytes are UTF-8 (BEA-style declaration).
+    utf8 = _rss(want.encode("utf-8"), "us-ascii")
+    assert news.parse_feed(utf8, feed, RULES)[0]["title"] == want
+    # Declared UTF-8 but the bytes are Windows-1252 (0x92 = right single quote).
+    cp = _rss(want.encode("cp1252"), "UTF-8")
+    assert news.parse_feed(cp, feed, RULES)[0]["title"] == want
+    # Honest UTF-8 is untouched.
+    assert news.parse_feed(_rss(want.encode("utf-8"), "UTF-8"), feed, RULES)[0]["title"] == want
+
+
+def test_central_bank_tag_needs_central_bank_context():
+    rules = news.compile_rules({"central-bank": ["fed", "central bank", "fomc"]},
+                               {"central-bank": ["central bank of ai", "fed up"]})
+    assert news.tag_text("Nvidia\u2019s role as the \u2018central bank of AI\u2019", rules) == []
+    assert news.tag_text("Investors fed up with tech", rules) == []
+    assert news.tag_text("Fed's Goolsbee says central bank has work to do", rules) == ["central-bank"]
+    assert news.tag_text("Brazil's central bank hikes", rules) == ["central-bank"]

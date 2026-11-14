@@ -1,7 +1,7 @@
 import { APP_NAME } from "../config";
 import { useData } from "../lib/data";
 import { relTime } from "../lib/format";
-import { PANELS } from "../panels/registry";
+import { PANELS, SECTIONS } from "../panels/registry";
 import { useSettings } from "../state/store";
 import type { Meta, Period } from "../types";
 import { LogoMark, MoonIcon, SlidersIcon, SunIcon } from "./Icons";
@@ -53,7 +53,7 @@ export function Header() {
             <span className="group-label">Customise view</span>
             <button type="button" className="text-[11px] underline" style={{ color: "var(--accent)" }} onClick={s.showAll}>Show all</button>
           </div>
-          {(["Overview", "Equities", "Fixed Income", "Commodities & FX", "Macro"] as const).map((sec) => {
+          {SECTIONS.map((sec) => {
             const items = PANELS.filter((p) => p.section === sec);
             if (!items.length) return null;
             return (

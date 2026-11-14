@@ -6,6 +6,9 @@
 #   source: boe     -> series: Bank of England IADB series code
 #   source: boe_glc -> tenor: maturity in years on the BoE nominal spot (zero-coupon) curve
 #   source: yahoo   -> series: Yahoo ticker; fallback_boe: IADB code used if Yahoo fails
+#   step: true      -> policy rate: prev = last value different from the current one
+#   window_months   -> rolling-average series: label the whole window (e.g. JUN–AUG 2026).
+#                      ONS series whose labels already give the window (LFS, e.g. MGSX) are detected automatically.
 # ONS series are already rates (%), so their transform is `level`.
 #
 # About texts were drafted with AI assistance and reviewed by hand.
@@ -69,7 +72,7 @@ metrics:
     frequency: monthly
     source_url: https://www.ons.gov.uk/employmentandlabourmarket/peoplenotinwork/unemployment
     about:
-      what: The share of the economically active population aged 16+ who are unemployed, from the Labour Force Survey (LFS). Each reading is a rolling three-month average, so the month shown is the end of that window.
+      what: The share of the economically active population aged 16+ who are unemployed, from the Labour Force Survey (LFS). Each reading is a rolling three-month average. ONS dates it by the middle month, so the dashboard shows the whole window (e.g. JUN–AUG 2026) and plots it at the window's last month.
       why: Labour-market slack drives wage growth, which the MPC sees as a key source of persistent services inflation. Rising unemployment is also the clearest sign that a slowdown is turning into a recession.
       how_to_read: A steady rise of half a point or more from the cycle low is a warning sign. Treat month-to-month moves with caution, because LFS response rates have been low since 2023 and the ONS flags the estimates as less reliable. Cross-check with payrolled employees (PAYE RTI) and vacancies.
 
@@ -78,6 +81,7 @@ metrics:
     name: Regular Pay Growth
     source: ons
     uri: /employmentandlabourmarket/peopleinwork/earningsandworkinghours/timeseries/kai9/lms
+    window_months: 3  # ONS labels KAI9 by the window's end month only
     transform: level
     units: "%"
     decimals: 1
@@ -130,6 +134,7 @@ metrics:
     name: Bank Rate
     source: boe
     series: IUDBEDR
+    step: true  # prev = last different value, so a rate move stays visible
     transform: level
     units: "%"
     decimals: 2
@@ -143,7 +148,7 @@ metrics:
 
   - id: uk_gilt_2y
     group: rates
-    name: 2Y Gilt Yield
+    name: 2Y Zero-Coupon Gilt
     source: boe_glc
     tenor: 2
     transform: level
@@ -159,7 +164,7 @@ metrics:
 
   - id: uk_gilt_10y
     group: rates
-    name: 10Y Gilt Yield
+    name: 10Y Zero-Coupon Gilt
     source: boe
     series: IUDMNZC
     transform: level
@@ -185,8 +190,8 @@ metrics:
     decimals: 4
     good: neutral
     frequency: daily
-    source_url: https://www.bankofengland.co.uk/statistics/exchange-rates
+    source_url: https://finance.yahoo.com/quote/GBPUSD=X
     about:
-      what: The exchange rate of the pound against the US dollar (known as "cable"), i.e. how many dollars one pound buys.
+      what: The exchange rate of the pound against the US dollar (known as "cable"), i.e. how many dollars one pound buys. Daily closes come from Yahoo Finance, with the Bank of England's 4pm London spot rate (IADB series XUDLUSS) used as a fallback if Yahoo fails.
       why: Sterling affects UK import prices and therefore inflation, and it shows how markets judge UK growth and policy relative to the US.
       how_to_read: A rising rate means a stronger pound. Moves are driven largely by the gap between UK and US rate expectations (compare the 2-year gilt with the 2-year Treasury). Sharp falls alongside rising gilt yields are a warning sign of a UK-specific confidence problem rather than a normal policy story.

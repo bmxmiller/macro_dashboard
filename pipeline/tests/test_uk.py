@@ -83,3 +83,22 @@ def test_uk_registry_is_complete():
         assert m["source"] in {"ons", "boe", "boe_glc", "yahoo"}
         assert set(m["about"]) == {"what", "why", "how_to_read"}
         assert m["source_url"].startswith("https://")
+
+
+def test_ons_lfs_rolling_window_dated_by_end_month():
+    """ONS dates 3-month LFS averages by the MIDDLE month; we use the window's end."""
+    import json
+    from pathlib import Path
+    payload = json.loads((Path(__file__).parent / "fixtures" / "ons_mgsx_lfs.json").read_text(encoding="utf-8"))
+    s = ons.parse_timeseries(payload, "monthly")
+    assert s.attrs["window_months"] == 3
+    assert s.index[-1] == pd.Timestamp("2026-08-01") and s.iloc[-1] == 4.7   # JUN-AUG -> Aug
+    assert pd.Timestamp("2026-02-01") in s.index                            # 2025 DEC-FEB ends in 2026
+    assert pd.Timestamp("2026-01-01") in s.index                            # 2025 NOV-JAN ends in 2026
+    assert ons.window_label(s.index[-1], 3) == "JUN–AUG 2026"
+    assert ons.window_label(pd.Timestamp("2026-02-01"), 3) == "DEC 2025–FEB 2026"
+
+
+def test_ons_single_month_labels_have_no_window():
+    s = ons.parse_timeseries({"months": [{"date": "2026 AUG", "value": "3.7", "label": "2026 AUG"}]}, "monthly")
+    assert s.index[-1] == pd.Timestamp("2026-08-01") and "window_months" not in s.attrs

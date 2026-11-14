@@ -7,3 +7,7 @@ pipeline/.cache/
 node_modules/
 web/dist/
 .DS_Store
+web/playwright-report/
+web/test-results/
+web/e2e/__screenshots__/actual/
+web/blob-report/
