@@ -52,8 +52,8 @@ flowchart LR
 
 ## AI features: "code decides, the LLM narrates"
 - The **macro regime is computed deterministically** from published data and unit-tested: growth and inflation momentum, the real policy rate, and credit vs duration-matched Treasuries.
-- A free-tier LLM writes the daily brief and news summaries. **Every number it writes must exist in its input data**, matching **label, unit, sign and precision**. One example: "Core CPI rose to 3.7%" is rejected when 3.7% is *headline* CPI.
-- An adversarial test suite, built from a review agent's attack strings, cut validator bypasses from **22/25 to 0/25**.
+- A free-tier LLM writes the daily brief and news summaries. A **number checker** requires each number it writes to match the input data's value, unit, direction and metric name. For example, "Core CPI rose to 3.7%" is rejected because 3.7% is *headline* CPI.
+- **It is a safety net, not a guarantee.** A 25-string adversarial suite cut bypasses from 22/25 to 0/25, but a much broader red-team (about 520 strings, written by a separate red-team agent) still found many ways through: appositive sentences ("Core CPI, now at 3.7%, rose"), reversed "from X to Y", odd number formatting, softer advice wording and invented causes. A checker with no world model cannot catch invented causes at all. The findings are tracked in [issue #16](https://github.com/bmxmiller/macro_dashboard/issues/16), and the panel is always labelled AI-generated.
 - Semantic guards reject advice language and claims that contradict the computed regime. Outputs show the model, timestamp and a "not investment advice" disclaimer.
 
 ## Built AI-first with Claude Code
