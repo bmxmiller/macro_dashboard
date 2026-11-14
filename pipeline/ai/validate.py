@@ -138,6 +138,9 @@ ALIASES = {
     "2s10s": "2s10s", "3m10y": "3m10y", "vix": "vix",
     "s&p 500": "spx", "s&p": "spx", "spx": "spx", "nasdaq": "nasdaq", "dow": "dow", "russell": "russell",
     "gold": "gold", "oil": "oil", "wti": "oil", "brent": "oil", "crude": "oil",
+    # Snapshot rows need an alias too: without one a number after "US Dollar Index" is blamed on
+    # the nearest *known* metric (the 10Y yield), a false rejection seen in a live run.
+    "us dollar index": "dxy", "dollar index": "dxy", "dxy": "dxy", "bitcoin": "btc", "btc": "btc",
     "high-yield spread": "hy", "high yield spread": "hy", "hy spread": "hy", "credit spread": "hy",
     "hy oas": "hy", "junk bond spread": "hy",
     "uk gdp": "uk_gdp", "gdp": "gdp", "bank rate": "bank_rate",

@@ -19,6 +19,9 @@ def _no_sleep(monkeypatch):
 def cfg():
     c = llm.load_config()
     c["retries"] = 1
+    # Pin the chain shape the tests exercise (two Gemini models, then Groq) so they don't
+    # depend on which models production ai.yaml currently lists.
+    c["providers"]["gemini"]["models"] = ["gemini-test-primary", "gemini-test-fallback"]
     return c
 
 
