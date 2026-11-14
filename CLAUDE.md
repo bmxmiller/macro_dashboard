@@ -22,3 +22,8 @@ Self-updating macro dashboard. A Python pipeline writes static JSON, a React app
 - Secrets come only from env vars (`FRED_API_KEY`, `GEMINI_API_KEY`, `GROQ_API_KEY`) or `.env` (gitignored). Never commit them or print them.
 - Before finishing: `./.venv/Scripts/python -m pytest pipeline/tests -q` and `cd web && npm run typecheck`.
 - Log notable agent work, failures and fixes in `docs/AI_WORKFLOW.md`.
+
+## Workflow
+- Feature work happens on branches (`feat/*`) and goes through a **pull request**. CI (pytest, typecheck, build, e2e) must be green. `deploy` only runs after `ci` passes on main.
+- Custom agents in `.claude/agents/`: `finance-reviewer` (reviews numbers and explanations on every PR) and `data-verifier` (checks published data against official sources).
+- Windows note: the harness's `isolation: "worktree"` fails on this machine (drive-letter case), so parallel agents use manual worktrees in `../Macro_Dashboard-wt/<name>`.

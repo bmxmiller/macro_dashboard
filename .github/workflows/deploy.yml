@@ -7,12 +7,13 @@ name: deploy
 # So the data commit made by update-data.yml would never fire the `push` trigger
 # below. Instead we listen for update-data finishing. We deploy on success AND on
 # failure, because a partial failure still commits fresh data for the good sections.
+#
+# Code changes deploy only after `ci` (tests + typecheck + build + e2e) passes on
+# main, so a red build can never reach the live site.
 
 on:
-  push:
-    branches: [main]
   workflow_run:
-    workflows: [update-data]
+    workflows: [ci, update-data]
     types: [completed]
     branches: [main]
   workflow_dispatch:
@@ -30,9 +31,13 @@ concurrency:
 jobs:
   build:
     if: >-
-      github.event_name != 'workflow_run' ||
-      github.event.workflow_run.conclusion == 'success' ||
-      github.event.workflow_run.conclusion == 'failure'
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.name == 'ci' &&
+        github.event.workflow_run.event == 'push' &&
+        github.event.workflow_run.conclusion == 'success') ||
+      (github.event.workflow_run.name == 'update-data' &&
+        (github.event.workflow_run.conclusion == 'success' ||
+         github.event.workflow_run.conclusion == 'failure'))
     runs-on: ubuntu-latest
     steps:
       # For workflow_run, github.sha is the latest commit on main, so this
