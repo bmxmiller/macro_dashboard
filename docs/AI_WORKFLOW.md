@@ -49,3 +49,26 @@ A read-only reviewer agent audited the merged code and reported 14 verified find
 - **Incident: model availability differs from the docs.** Live calls found `llama-3.3-70b-versatile` returned 404 on this Groq account, and `gemini-2.5-flash` was still listed by the models API but returned 404 "no longer available to new users". Models are now pinned in `ai.yaml` (Groq `openai/gpt-oss-120b`, Gemini `gemini-3.8-flash`). Keys in the new "AQ." format are masked by redacting the env-var values themselves.
 - **Incident: a fact-checked answer was still wrong.** The first validator only checked that each number appeared somewhere in the digest. A Groq answer passed it while quoting ETF prices (SPY, DIA) as index levels, and the PR review produced 25 adversarial strings, 22 of which slipped through. The validator was rebuilt on explicit facts and now checks value at the data's precision, unit, sign/direction verb and the metric named before each number, plus advice words and regime names: 0/25 slip through, with no false rejections on 23 correct statements.
 - **Review fixes (finance reviewer):** quadrant names that no longer clash with the Investment Clock, a flat state shown as a boundary, GDP momentum instead of level vs trend, staleness cut-offs, a Fed funds midpoint, duration-matched credit pairs, code-authored tendencies citing Greetham & Hartnett (2004), and source links on both AI panels.
+
+### Session 4 (2026-11-14): PR workflow, protected `main`, and reviewing the first live AI output
+**Process.** Three agents ran in parallel in manual worktrees, each ending in a pull request: Playwright e2e (PR #1), the five missing data panels (PR #2) and AI insights (PR #3). Each PR got CI, `/code-review` (inline PR comments) and the custom `finance-reviewer` agent. Findings went back to the authoring agent with `SendMessage` and were fixed before merge. PR #2 needed 16 fixes and PR #3 a validator rebuild.
+
+**Verifying agent reports.** I re-ran the adversarial and full test suites myself before merging PR #3 instead of trusting the agent's summary. Both passed.
+
+**Protected `main` and the data bot.** A ruleset now requires a PR and three green checks (pytest, typecheck + build, Playwright), and blocks force-push and deletion. A direct push was tested and rejected (GH013). The daily job pushes data to `main`, and personal repos can't exempt the Actions bot, so the job checks out with a write **deploy key** (repo-only SSH key; the private half is a secret and no local copy exists), the only bypass in the ruleset. A side effect that turned out useful: deploy-key pushes, unlike `GITHUB_TOKEN` pushes, trigger workflows, so **every data commit now runs the full CI suite, including browser tests, before `deploy` publishes it**. `deploy` now runs only after `ci` passes and builds exactly the commit that passed. The whole chain (bot push → CI → deploy) was exercised live.
+
+**Backlog and docs.** Labels and 7 issues (#4–#10) record the review follow-ups and the agent-tooling ideas, and the README was merged through the new PR flow.
+
+**Agent resilience.** Agent B was interrupted twice, by an API/DNS error and by a stream stall. It was resumed with an audit of what its worktree already held, and from then on committed and pushed after each priority block, so an interruption could cost at most one block.
+
+**Reviewing the first live brief.** All numbers matched the data, but reading it found three problems the checks hadn't:
+1. **A leaked internal key:** "...to a level_pct of 5.15". Fix: a validator check that rejects any snake_case identifier in AI text, and prompt rules for plain English. The new rule was run against the published file to confirm it flags that sentence.
+2. **A cause stated as fact:** the headline said "chip deficits", which was not in the data. Prompt rule added (state what moved; attribute any reason to a headline). **This is a prompt instruction, not code-enforced:** a plausible invented cause can't be detected automatically, which is why the panel keeps its "AI-generated" label.
+3. **Clumsy phrasing:** addressed by the same prompt change.
+
+**Reading the CI logs paid off twice.**
+- `gemini-3.8-flash` never answered: two 150 s read timeouts and then an HTTP 503 (about 5.5 minutes per run), while `gemini-3.5-flash-lite` answers in 2–3 s. The slow model was removed from the chain (reason recorded in `ai.yaml`) and the timeout cut to 60 s. This is based on one run's logs plus one isolated test call, so re-adding it later is cheap if it improves.
+- The validator wrongly rejected a correct sentence: "US Dollar Index" had no alias, so the number was blamed on the nearest known metric (the 10Y yield). The retry-with-feedback loop masked it. Added the alias and positive and negative tests.
+- A test that read the production model list broke when the list changed, so the fixture now pins its own chain.
+
+**Not verified.** The browser tool disconnected and could not be reconnected from the agent side. The published data files were checked, but the AI panels have not been viewed on the live site in this session. The e2e suite checks that they render without errors.

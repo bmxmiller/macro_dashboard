@@ -17,7 +17,11 @@ providers:
     # Pinned names (not "-latest") for reproducibility. 2026-11-14: gemini-2.5-flash is still LISTED by
     # GET /v1beta/models but generateContent returns 404 "no longer available to new users. Please
     # use models/gemini-3.8-flash". Docs list 3.8-flash and 3.5-flash-lite as free-tier stable models.
-    models: [gemini-3.8-flash, gemini-3.5-flash-lite]
+    # gemini-3.8-flash was removed (2026-11-14): in a live run it hit two 150 s read timeouts and
+    # then an HTTP 503 "high demand" (~5.5 min wasted, no answer), and an isolated test call got a
+    # 503 too. gemini-3.5-flash-lite answers in ~2-3 s and passes the validator (with retry).
+    # Re-add a model here (first = preferred) only after checking its latency.
+    models: [gemini-3.5-flash-lite]
     response_schema: true          # send responseSchema (structured output); false = JSON mode only
   groq:
     key_env: GROQ_API_KEY
@@ -27,7 +31,7 @@ providers:
 
 temperature: 0.3
 max_output_tokens: 8192            # Gemini 3.x "thinking" tokens count toward this, so leave headroom
-timeout_seconds: 150                # gemini-3.8-flash (thinking) timed out at 90s on a ~4k-token digest
+timeout_seconds: 60                 # flash-lite answers in ~3 s; a slow provider should fail fast, not stall the run
 retries: 2                         # extra attempts per provider on 429 / 5xx / timeout / bad JSON
 retry_backoff_seconds: 4           # doubled each retry
 

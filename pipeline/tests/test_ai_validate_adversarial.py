@@ -17,6 +17,7 @@ DIGEST = {
             {"name": "VIX", "tag": "INDEX", "ret_1d_pct": 3.2, "level": 19.3, "asof": "2026-11-13", "source": "Yahoo Finance"},
             {"name": "US 10Y Yield", "tag": "%", "chg_1d_bp": 5, "level_pct": 5.15, "asof": "2026-11-13", "source": "Yahoo Finance"},
             {"name": "Gold", "tag": "FUT", "ret_1d_pct": 0.0, "level": 3886.3, "asof": "2026-11-13", "source": "Yahoo Finance"},
+            {"name": "US Dollar Index", "tag": "DXY", "ret_1d_pct": 0.2, "level": 103.41, "asof": "2026-11-13", "source": "Yahoo Finance"},
         ],
         "Sector Performance": {
             "1W": {"top": [{"name": "Energy", "tag": "XLE", "ret_pct": 5.4}], "bottom": [{"name": "Materials", "tag": "XLB", "ret_pct": 0.5}]},
@@ -56,6 +57,9 @@ DIGEST = {
 }
 
 BAD = [
+    "The US Dollar Index rose 0.9% to 103.41.",        # right level, wrong move
+    "The US Dollar Index fell 0.2%.",                   # right size, wrong direction
+    "The US Dollar Index rose 0.2% to 5.15.",           # the 10Y yield's level, not the dollar's
     "Core CPI rose to 3.7%.",                      # headline CPI's value under the core label
     "The S&P 500 rose 0.4% on the day.",           # it fell 0.4%
     "The Dow is above 40,000.",                    # invented level (only the DIA return is known)
@@ -84,6 +88,8 @@ BAD = [
 ]
 
 GOOD = [
+    # seen live: a false rejection because "US Dollar Index" had no alias (number blamed on the 10Y)
+    "The US 10Y Yield rose 5 bp to 5.15%, and the US Dollar Index rose 0.2% to 103.41.",
     "Core CPI rose to 2.6% from 2.4%.",
     "CPI rose to 3.7% from 3.4%.",
     "The S&P 500 fell 0.4%.",
