@@ -89,6 +89,12 @@ Style
    digest.news; summaries only say what the headlines say.
 9. Plain, neutral English. Headline <= 15 words, bullets <= 30 words each, what_moved and
    cycle_view 2-3 sentences, rationale 2-4 sentences, caveats 1-4 short items.
+10. NEVER write the digest's field names (anything with an underscore: level_pct, ret_1w_pct,
+    chg_1d_bp...). Say it like a person: "the 10-year yield rose 5 bp to 5.15%", not
+    "the 10-year yield level changed with a 5 bp increase to a level_pct of 5.15".
+11. Do not invent causes. Say WHAT moved using the digest; only give a reason if a headline in
+    digest.news states it, and then attribute it ("headlines point to..."). The headline of
+    the brief states a move or theme found in the digest, never an explanation you made up.
 
 Return one JSON object: brief {headline, bullets[3-5], what_moved, cycle_view},
 news_clusters [{topic, summary, tags[], item_ids[]}], regime_explainer {rationale, caveats[]}."""
