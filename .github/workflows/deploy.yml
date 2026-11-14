@@ -2,18 +2,14 @@ name: deploy
 
 # Builds web/ and publishes it to GitHub Pages.
 #
-# Why `workflow_run`? Commits pushed by a workflow using the default GITHUB_TOKEN
-# do NOT trigger other workflows (GitHub blocks this to prevent recursive runs).
-# So the data commit made by update-data.yml would never fire the `push` trigger
-# below. Instead we listen for update-data finishing. We deploy on success AND on
-# failure, because a partial failure still commits fresh data for the good sections.
-#
-# Code changes deploy only after `ci` (tests + typecheck + build + e2e) passes on
-# main, so a red build can never reach the live site.
+# Deploys ONLY after `ci` (pytest + typecheck + build + Playwright e2e) passes on a
+# push to main. That covers both code merges (via PR) and the daily data commits,
+# which update-data pushes with a deploy key so they DO trigger `ci`. A red build
+# or data that breaks the UI can never reach the live site.
 
 on:
   workflow_run:
-    workflows: [ci, update-data]
+    workflows: [ci]
     types: [completed]
     branches: [main]
   workflow_dispatch:
@@ -32,17 +28,14 @@ jobs:
   build:
     if: >-
       github.event_name == 'workflow_dispatch' ||
-      (github.event.workflow_run.name == 'ci' &&
-        github.event.workflow_run.event == 'push' &&
-        github.event.workflow_run.conclusion == 'success') ||
-      (github.event.workflow_run.name == 'update-data' &&
-        (github.event.workflow_run.conclusion == 'success' ||
-         github.event.workflow_run.conclusion == 'failure'))
+      (github.event.workflow_run.event == 'push' &&
+        github.event.workflow_run.conclusion == 'success')
     runs-on: ubuntu-latest
     steps:
-      # For workflow_run, github.sha is the latest commit on main, so this
-      # includes the data commit that update-data just pushed.
+      # Build exactly the commit that passed CI (not whatever main is now).
       - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
       - uses: actions/setup-node@v5
         with:

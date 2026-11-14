@@ -30,7 +30,14 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
+      # Push with a write deploy key (secret DATA_DEPLOY_KEY): `main` is protected by a
+      # ruleset that requires PRs + green CI, and deploy keys are its only bypass.
+      # Personal repos can't exempt the GITHUB_TOKEN bot. Bonus: unlike GITHUB_TOKEN
+      # pushes, a deploy-key push DOES trigger `ci`, so every data commit is
+      # e2e-tested before `deploy` publishes it.
       - uses: actions/checkout@v5
+        with:
+          ssh-key: ${{ secrets.DATA_DEPLOY_KEY }}
 
       - uses: actions/setup-python@v6
         with:
