@@ -153,3 +153,13 @@ def test_history_downsamples_daily_to_weekly():
     dates = pd.to_datetime([d for d, _ in h])
     assert set(dates).issubset(set(s.index))  # labels are real observation dates, never future
     assert h[-1] == [s.index[-1].strftime("%Y-%m-%d"), 999.0]  # latest observation preserved
+
+
+def test_prev_and_change_step_series_uses_last_different_value():
+    idx = pd.date_range("2026-10-01", periods=6, freq="D")
+    rate = pd.Series([4.25, 4.25, 4.0, 4.0, 4.0, 4.0], index=idx)
+    assert econ.prev_and_change(rate) == (4.0, 0.0)                 # plain: yesterday, unchanged
+    assert econ.prev_and_change(rate, step=True) == (4.25, -0.25)    # step: the cut stays visible
+    flat = pd.Series([5.0] * 4, index=idx[:4])
+    assert econ.prev_and_change(flat, step=True) == (5.0, 0.0)
+    assert econ.prev_and_change(rate.iloc[:1], step=True) == (None, None)

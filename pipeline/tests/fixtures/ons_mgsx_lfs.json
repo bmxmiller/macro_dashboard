@@ -1,0 +1,11 @@
+{
+  "description": {"cdid": "MGSX", "title": "Unemployment rate (aged 16 and over, seasonally adjusted): %"},
+  "months": [
+    {"date": "2025 DEC", "value": "5.0", "label": "2025 NOV-JAN", "year": "2025", "month": "December"},
+    {"date": "2026 JAN", "value": "5.1", "label": "2025 DEC-FEB", "year": "2026", "month": "January"},
+    {"date": "2026 JUN", "value": "4.9", "label": "2026 MAY-JUL", "year": "2026", "month": "June"},
+    {"date": "2026 JUL", "value": "4.7", "label": "2026 JUN-AUG", "year": "2026", "month": "July"}
+  ],
+  "quarters": [],
+  "years": []
+}

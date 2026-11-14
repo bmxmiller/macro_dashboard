@@ -85,3 +85,7 @@ tag_rules:
   macro: [inflation, cpi, ppi, pce, gdp, jobs, payrolls, payroll, unemployment, jobless, labor market, labour market, recession, economy, economic, retail sales, tariff, tariffs, consumer prices, trade deficit, wages]
   central-bank: [fed, federal reserve, fomc, powell, ecb, lagarde, bank of england, boe, mpc, bailey, boj, bank of japan, central bank, monetary policy]
   uk: [uk, britain, british, sterling, gilt, gilts, bank of england, ftse, london, reeves, ons, chancellor]
+
+# Phrases that start with a tag keyword but are NOT about that topic.
+tag_exclude:
+  central-bank: [central bank of ai, central bank of crypto, central bank of bitcoin, fed up]

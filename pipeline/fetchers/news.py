@@ -38,12 +38,24 @@ def normalize_title(title: str) -> str:
     return _WS_RE.sub(" ", t).strip()
 
 
-def compile_rules(rules: dict[str, list[str]]) -> dict[str, re.Pattern]:
+def _alts(words: list[str]) -> str:
+    return "|".join(sorted({re.escape(w.lower()) for w in words}, key=len, reverse=True))
+
+
+def compile_rules(rules: dict[str, list[str]],
+                  exclude: dict[str, list[str]] | None = None) -> dict[str, re.Pattern]:
+    """One case-insensitive whole-word regex per tag.
+
+    `exclude[tag]` lists phrases that must NOT count as a match for that tag even
+    though they start with one of its keywords (e.g. "central bank of AI").
+    """
     out = {}
     for tag, words in rules.items():
-        alts = sorted({re.escape(w.lower()) for w in words}, key=len, reverse=True)
         # (?<![\w&]) / (?![\w&]) act as word boundaries that also work for "s&p".
-        out[tag] = re.compile(r"(?<![\w&])(?:" + "|".join(alts) + r")(?![\w&])", re.IGNORECASE)
+        neg = ""
+        if exclude and exclude.get(tag):
+            neg = r"(?!(?:" + _alts(exclude[tag]) + r")(?![\w&]))"
+        out[tag] = re.compile(r"(?<![\w&])" + neg + r"(?:" + _alts(words) + r")(?![\w&])", re.IGNORECASE)
     return out
 
 
@@ -63,7 +75,43 @@ def _entry_time(e) -> datetime | None:
     return datetime.fromtimestamp(calendar.timegm(st), tz=timezone.utc)
 
 
+_DECL_RE = re.compile(rb"""^(\xef\xbb\xbf)?\s*(<\?xml[^>]*?encoding=)(["'])([\w.-]+)\3""", re.IGNORECASE)
+
+
+def fix_encoding(content: bytes) -> bytes:
+    """Return feed bytes whose XML declaration matches the actual byte encoding.
+
+    feedparser trusts the declared encoding. Some feeds declare us-ascii/latin-1
+    but send UTF-8 (so "Nvidia’s" turns into mojibake or "Nvidia�s"), or declare
+    UTF-8 but send Windows-1252 bytes. Re-encode to honest UTF-8 in both cases.
+    """
+    m = _DECL_RE.match(content)
+    declared = m.group(4).decode("ascii").lower() if m else "utf-8"
+    try:
+        content.decode("utf-8")
+        is_utf8 = True
+    except UnicodeDecodeError:
+        is_utf8 = False
+    if is_utf8:
+        if m and declared not in ("utf-8", "utf8"):
+            content = content[:m.start(4)] + b"utf-8" + content[m.end(4):]
+        return content
+    # Not valid UTF-8: decode with the declared codec if it is a real 8-bit one, else cp1252.
+    codec = declared if declared not in ("utf-8", "utf8", "us-ascii", "ascii") else "cp1252"
+    try:
+        text = content.decode(codec)
+    except (LookupError, UnicodeDecodeError):
+        text = content.decode("cp1252", errors="replace")
+    out = text.encode("utf-8")
+    m2 = _DECL_RE.match(out)
+    if m2:
+        out = out[:m2.start(4)] + b"utf-8" + out[m2.end(4):]
+    return out
+
+
 def parse_feed(content: bytes | str, feed: dict, compiled: dict[str, re.Pattern]) -> list[dict]:
+    if isinstance(content, bytes):
+        content = fix_encoding(content)
     parsed = feedparser.parse(content)
     items = []
     for e in parsed.entries:

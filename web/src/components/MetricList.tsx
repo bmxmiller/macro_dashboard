@@ -5,12 +5,15 @@ import { AboutButton } from "./AboutCard";
 import { HistoryModal } from "./HistoryModal";
 import { changeSuffix, MetricStats } from "./MetricStats";
 
+/** Stable empty default: a new [] each render would rebuild the chart option and reset zoom. */
+const EMPTY: [string, string][] = [];
+
 /**
  * Grouped list of macro metrics (latest print vs previous). Each row has a
  * good/bad arrow, an ⓘ About card with 10y stats, and opens its history chart.
  * Shared by the US Economic Indicators and UK Macro panels.
  */
-export function MetricList({ groups, metrics, recessions = [] }: {
+export function MetricList({ groups, metrics, recessions = EMPTY }: {
   groups: { id: string; label: string }[];
   metrics: Metric[];
   recessions?: [string, string][];

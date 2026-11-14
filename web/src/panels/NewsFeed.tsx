@@ -6,7 +6,7 @@ import { useStale } from "../lib/stale";
 import type { About, News, NewsItem, NewsSource, NewsTag } from "../types";
 
 const ABOUT: About = {
-  what: "Recent market and economic headlines from free RSS feeds: central banks and statistical agencies first, then financial news outlets. Each item is tagged by topic with simple keyword rules.",
+  what: "Recent market and economic headlines from free RSS feeds, newest first, from central banks, statistical agencies and financial news outlets. Each item is tagged by topic with simple keyword rules.",
   why: "Headlines explain why prices moved and flag policy announcements and data releases as they happen, alongside the numbers elsewhere on the dashboard.",
   how_to_read: "Use the chips to filter by topic (pick several to combine them; All clears the filter). Titles link to the original article in a new tab. Times are relative to now. Feed health (below) shows which sources answered on the last update.",
 };
@@ -49,7 +49,8 @@ export function NewsFeed() {
             <Chip active={!selected.length} onClick={() => setSelected([])}>All</Chip>
             {tags.map((t) => <Chip key={t} active={selected.includes(t)} onClick={() => toggle(t)}>{TAG_LABEL[t]}</Chip>)}
           </div>
-          {items.length === 0 && <PanelMessage>No headlines match this filter.</PanelMessage>}
+          {data.items.length === 0 && <PanelMessage>No headlines available.</PanelMessage>}
+          {data.items.length > 0 && items.length === 0 && <PanelMessage>No headlines match this filter.</PanelMessage>}
           <ul className="m-0 p-0 list-none">
             {items.map((i) => <NewsRow key={i.id} item={i} />)}
           </ul>

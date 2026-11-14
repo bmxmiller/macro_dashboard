@@ -12,11 +12,25 @@ const TIMING: Record<Timing, string> = {
   DMH: "During market hours",
 };
 
-/** Implied YoY EPS growth (%) from the consensus estimate vs the same quarter last year. */
-function yoyGrowth(e: EarningsItem): number | null {
-  if (e.eps_estimate == null || e.eps_prior_year == null || e.eps_prior_year === 0) return null;
-  return ((e.eps_estimate - e.eps_prior_year) / Math.abs(e.eps_prior_year)) * 100;
+/**
+ * Implied YoY EPS growth from the consensus estimate vs the same quarter last year.
+ * "n/m" (not meaningful) when the base is ≤ 0 or tiny (|prior| < $0.05) or the sign
+ * flips; display is capped at ±999%.
+ */
+function yoyGrowth(e: EarningsItem): { value: number | null; text: string } {
+  const est = e.eps_estimate, prior = e.eps_prior_year;
+  if (est == null || prior == null) return { value: null, text: "–" };
+  if (prior <= 0 || Math.abs(prior) < 0.05 || est < 0) return { value: null, text: "n/m" };
+  const g = ((est - prior) / prior) * 100;
+  const capped = Math.max(-999, Math.min(999, g));
+  return { value: g, text: `${Math.abs(g) > 999 ? (g > 0 ? ">" : "<") : ""}${signed(capped, 0, "%")}` };
 }
+
+/** Viewer's local date as YYYY-MM-DD. */
+const todayIso = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+};
 
 const eps = (v: number | null) => (v == null ? "–" : `${v < 0 ? "−" : ""}$${Math.abs(v).toFixed(2)}`);
 
@@ -27,7 +41,9 @@ export function EarningsCalendar() {
 
   const byDate = useMemo(() => {
     const m = new Map<string, EarningsItem[]>();
-    for (const e of [...(data?.items ?? [])].sort((a, b) => a.date.localeCompare(b.date))) {
+    const today = todayIso(); // stale JSON must never show past reports as upcoming
+    const upcoming = (data?.items ?? []).filter((e) => e.date >= today);
+    for (const e of upcoming.sort((a, b) => a.date.localeCompare(b.date))) {
       m.set(e.date, [...(m.get(e.date) ?? []), e]);
     }
     return [...m.entries()];
@@ -75,6 +91,7 @@ export function EarningsCalendar() {
 
 function EarningsRow({ item: e }: { item: EarningsItem }) {
   const g = yoyGrowth(e);
+  const gColour = g.value == null ? "var(--muted)" : g.value >= 0 ? "var(--pos-ink)" : "var(--neg-ink)";
   const href = safeUrl(e.source_url);
   return (
     <tr className="border-t" style={{ borderColor: "var(--border)" }}>
@@ -91,9 +108,9 @@ function EarningsRow({ item: e }: { item: EarningsItem }) {
       <td className="px-1 text-right num font-semibold whitespace-nowrap" style={{ color: "var(--ink)" }}>{eps(e.eps_estimate)}</td>
       <td className="px-1 text-right num whitespace-nowrap" style={{ color: "var(--muted)" }}
         title={e.prior_year_date ? `Reported ${e.prior_year_date}` : undefined}>{eps(e.eps_prior_year)}</td>
-      <td className="pr-3 pl-1 text-right num font-bold whitespace-nowrap"
-        style={{ color: g == null ? "var(--muted)" : g >= 0 ? "var(--pos-ink)" : "var(--neg-ink)" }}>
-        {signed(g, 0, "%")}
+      <td className="pr-3 pl-1 text-right num font-bold whitespace-nowrap" style={{ color: gColour }}
+        title={g.text === "n/m" ? "Not meaningful: prior-year EPS is negative, near zero, or the sign changes" : undefined}>
+        {g.text}
       </td>
     </tr>
   );

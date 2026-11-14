@@ -95,8 +95,13 @@ function MarketDetails({ market: m }: { market: CotMarket }) {
         <dt style={{ color: "var(--muted)" }}>Net (% of OI)</dt>
         <dd className="m-0">{signedCompact(m.net)} ({signed(m.net_pct_oi, 1, "%")})</dd>
         <dt style={{ color: "var(--muted)" }}>3y range</dt><dd className="m-0">{signedCompact(m.min_3y)} to {signedCompact(m.max_3y)}</dd>
+        <dt style={{ color: "var(--muted)" }}>3y percentile</dt><dd className="m-0">{m.percentile_3y == null ? "–" : ordinal(m.percentile_3y)}</dd>
         <dt style={{ color: "var(--muted)" }}>COT index (3y)</dt><dd className="m-0">{m.cot_index_3y == null ? "–" : m.cot_index_3y.toFixed(0)}</dd>
       </dl>
+      <p className="m-0 text-[10.5px]" style={{ color: "var(--muted)" }}>
+        Percentile: share of the last 3 years' weekly readings at or below this week's net. COT index: position
+        within the 3-year min–max range (0 = min, 100 = max), so one extreme week stretches the scale.
+      </p>
       <div className="text-[10.5px]" style={{ color: "var(--muted)" }}>{m.report_name} · {m.exchange_name ?? m.contract_code}</div>
       <a href={m.data_url} target="_blank" rel="noopener noreferrer"
         className="inline-flex items-center gap-1 font-medium hover:underline" style={{ color: "var(--accent)" }}>

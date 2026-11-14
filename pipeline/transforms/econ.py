@@ -53,6 +53,27 @@ def period_label(ts: pd.Timestamp, frequency: str) -> str:
     return ts.strftime("%d %b %Y").upper()
 
 
+def prev_and_change(s: pd.Series, step: bool = False) -> tuple[float | None, float | None]:
+    """Previous value and latest − previous.
+
+    For step series (policy rates that sit flat between decisions) the "previous"
+    value is the last one that DIFFERS from the latest, so a rate move stays
+    visible instead of showing "unchanged" the day after.
+    """
+    s = s.dropna()
+    if len(s) < 2:
+        return None, None
+    last = float(s.iloc[-1])
+    if step:
+        diff = s[s.round(6) != round(last, 6)]
+        if diff.empty:
+            return round(last, 4), 0.0  # never changed in the window
+        prev = float(diff.iloc[-1])
+    else:
+        prev = float(s.iloc[-2])
+    return round(prev, 4), round(last - prev, 4)
+
+
 def zscore(s: pd.Series, years: int = 10) -> float | None:
     """Z-score of the latest value vs. its trailing `years` history."""
     s = s.dropna()

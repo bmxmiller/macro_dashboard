@@ -50,21 +50,28 @@ export function fmtDate(iso: string, opts: Intl.DateTimeFormatOptions = { month:
 }
 
 export function relTime(iso: string): string {
-  const mins = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
+  const t = new Date(iso).getTime();
+  if (Number.isNaN(t)) return "–";
+  const mins = Math.round((Date.now() - t) / 60000);
+  if (mins < 1) return "just now"; // also clamps future timestamps (clock skew, feed errors)
   if (mins < 60) return `${mins}m ago`;
   const h = Math.round(mins / 60);
   if (h < 48) return `${h}h ago`;
   return `${Math.round(h / 24)}d ago`;
 }
 
-/** Signed compact count: −2.26M, +28k, −2.6k, +512. */
+/**
+ * Signed compact count: −2.26M, +28k, −2.6k, +512. Rounds at each unit's
+ * precision BEFORE picking the unit, so 999,600 → "+1.00M" (not "+1000k").
+ */
 export function signedCompact(v: number | null | undefined): string {
   if (v == null || Number.isNaN(v)) return "–";
+  const round = (x: number, d: number) => Number(x.toFixed(d));
   const a = Math.abs(v);
   const s = v > 0 ? "+" : v < 0 ? "−" : "";
-  if (a >= 1e6) return `${s}${(a / 1e6).toFixed(2)}M`;
-  if (a >= 1e4) return `${s}${(a / 1e3).toFixed(0)}k`;
-  if (a >= 1e3) return `${s}${(a / 1e3).toFixed(1)}k`;
+  if (round(a / 1e3, 0) >= 1e3) return `${s}${(a / 1e6).toFixed(2)}M`;
+  if (round(a / 1e3, 1) >= 10) return `${s}${(a / 1e3).toFixed(0)}k`;
+  if (round(a, 0) >= 1e3) return `${s}${(a / 1e3).toFixed(1)}k`;
   return `${s}${a.toFixed(0)}`;
 }
 

@@ -8,19 +8,20 @@ import type { About, FearGreed, Sentiment as SentimentData, VixTerm } from "../t
 const ABOUT: About = {
   what: "Two gauges of US equity-market mood: CNN's Fear & Greed Index (a 0–100 composite of seven indicators) and the VIX term structure (near-dated vs 3-month implied volatility).",
   why: "Sentiment extremes often mark crowded positioning: extreme fear tends to coincide with forced selling near lows, while extreme greed signals complacency. An inverted VIX curve flags acute near-term stress.",
-  how_to_read: "Fear & Greed: below 25 is extreme fear, above 75 extreme greed. VIX/VIX3M below 0.95 is the normal upward-sloping curve (contango), 0.95–1.0 is flat and above 1.0 is backwardation. These are contrarian context, not trading signals. Use ⓘ on each block for details.",
+  how_to_read: "Fear & Greed (on CNN's whole-number bands): 0–24 extreme fear, 25–44 fear, 45–55 neutral, 56–75 greed, 76–100 extreme greed. VIX/VIX3M below 0.95 is the normal upward-sloping curve (contango), 0.95–1.0 is flat and above 1.0 is backwardation. These are contrarian context, not trading signals. Use ⓘ on each block for details.",
 };
 
-/** Fear & Greed zones: [upper bound, label, colour]. */
+/** CNN's integer bands: [highest score in band, label, colour] (≤24, 25–44, 45–55, 56–75, ≥76). */
 const ZONES: [number, string, string][] = [
-  [25, "extreme fear", "var(--neg)"],
-  [45, "fear", "color-mix(in oklab, var(--neg) 50%, var(--mid))"],
+  [24, "extreme fear", "var(--neg)"],
+  [44, "fear", "color-mix(in oklab, var(--neg) 50%, var(--mid))"],
   [55, "neutral", "var(--grid)"],
   [75, "greed", "color-mix(in oklab, var(--pos) 50%, var(--mid))"],
   [100, "extreme greed", "var(--pos)"],
 ];
 
-const ratingOf = (v: number) => ZONES.find(([hi]) => v < hi || hi === 100)![1];
+/** Rating for a score, classified on the ROUNDED score as CNN displays it. */
+const ratingOf = (v: number) => ZONES.find(([hi]) => Math.round(v) <= hi)?.[1] ?? "extreme greed";
 
 function ratingColour(rating: string | null): string {
   const r = (rating ?? "").toLowerCase();
@@ -116,7 +117,8 @@ function Gauge({ score, rating }: { score: number; rating: string | null }) {
   const s = Math.max(0, Math.min(100, score));
   const [nx, ny] = pt(s, r - 14);
   const label = rating ?? ratingOf(score);
-  const bounds = ZONES.map(([hi], i) => [i ? ZONES[i - 1][0] : 0, hi] as const);
+  // Draw bands on the continuous 0–100 scale: a band covers up to its top integer + 0.5.
+  const bounds = ZONES.map(([hi], i) => [i ? ZONES[i - 1][0] + 0.5 : 0, Math.min(100, hi + 0.5)] as const);
   return (
     <div className="shrink-0 flex flex-col items-center" role="img"
       aria-label={`Fear and Greed Index ${score.toFixed(0)} of 100, ${label}`}>

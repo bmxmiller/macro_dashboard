@@ -1,4 +1,4 @@
-import { signed } from "../lib/format";
+import { ordinal, signed } from "../lib/format";
 import type { Metric } from "../types";
 import { ExternalIcon } from "./Icons";
 
@@ -14,9 +14,15 @@ const HOSTS: [string, string][] = [
   ["yahoo.com", "Yahoo Finance"],
 ];
 
-/** "Data on FRED" / "Data on ONS"… from the data URL's host. */
+/** "Data on FRED" / "Data on ONS"… from the data URL's hostname. */
 function dataLinkLabel(url: string): string {
-  const host = HOSTS.find(([h]) => url.includes(h));
+  let hostname: string;
+  try {
+    hostname = new URL(url).hostname;
+  } catch {
+    return "Data series";
+  }
+  const host = HOSTS.find(([h]) => hostname === h || hostname.endsWith(`.${h}`));
   return host ? `Data on ${host[1]}` : "Data series";
 }
 
@@ -28,7 +34,7 @@ export function MetricStats({ metric }: { metric: Metric }) {
       <div className="flex gap-4 num" style={{ color: "var(--ink)" }}>
         <span><span style={{ color: "var(--muted)" }}>z-score </span>{signed(metric.zscore, 2, "")}</span>
         <span><span style={{ color: "var(--muted)" }}>percentile </span>
-          {metric.percentile != null ? `${metric.percentile.toFixed(0)}th` : "–"}</span>
+          {metric.percentile != null ? ordinal(metric.percentile) : "–"}</span>
       </div>
       <a href={metric.data_url} target="_blank" rel="noopener noreferrer"
         className="inline-flex items-center gap-1 font-medium hover:underline" style={{ color: "var(--accent)" }}>

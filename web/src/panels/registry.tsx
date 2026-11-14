@@ -32,6 +32,7 @@ export const PANELS: PanelDef[] = [
   { id: "index_snapshot", title: "Index Snapshot", section: "Overview", span: 12, Component: IndexSnapshot },
   { id: "economic_indicators", title: "Economic Indicators", section: "Macro", span: 3, tall: true, Component: EconomicIndicators },
   { id: "sectors", title: "Sector Performance", section: "Equities", span: 3, Component: () => <PerformancePanel panelId="sectors" /> },
+  { id: "earnings_calendar", title: "Earnings Calendar", section: "Equities", span: 3, Component: EarningsCalendar },
   { id: "fixed_income", title: "Fixed Income Performance", section: "Fixed Income", span: 3, tall: true, Component: () => <PerformancePanel panelId="fixed_income" showYield /> },
   { id: "yield_curve", title: "US Treasury Yield Curve", section: "Fixed Income", span: 3, Component: YieldCurvePanel },
   { id: "commodities", title: "Commodity Performance", section: "Commodities & FX", span: 3, tall: true, Component: () => <PerformancePanel panelId="commodities" /> },
@@ -40,6 +41,5 @@ export const PANELS: PanelDef[] = [
   { id: "uk_macro", title: "UK Macro", section: "Macro", span: 3, Component: UkMacro },
   { id: "sentiment", title: "Market Sentiment", section: "Sentiment & Positioning", span: 3, Component: Sentiment },
   { id: "positioning", title: "Futures Positioning", section: "Sentiment & Positioning", span: 3, Component: Positioning },
-  { id: "earnings_calendar", title: "Earnings Calendar", section: "Equities", span: 3, Component: EarningsCalendar },
   { id: "news", title: "Market News", section: "News", span: 3, tall: true, Component: NewsFeed },
 ];
