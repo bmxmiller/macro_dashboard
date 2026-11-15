@@ -64,6 +64,18 @@ GitHub Secrets are encrypted. Workflows can use them, but nobody, including you,
    | `FRED_API_KEY`   | your FRED key          |
    | `GEMINI_API_KEY` | your Gemini key        |
    | `GROQ_API_KEY`   | your Groq key          |
+   | `DATA_DEPLOY_KEY` | private SSH key the data bot pushes with (see 3b), only needed if you protect `main` |
+
+### 3b. (Optional) Protect `main` and let the data bot push
+
+The project's `main` branch is protected by a ruleset: changes need a pull request and three green checks (pytest, typecheck + build, Playwright), and force-push and deletion are blocked. The daily data job still has to commit to `main`, and a personal repo can't exempt the Actions bot, so the job pushes with a **deploy key**:
+
+1. Generate a key pair: `ssh-keygen -t ed25519 -f data_deploy_key -N ""`.
+2. **Settings** → **Deploy keys** → **Add deploy key**: paste `data_deploy_key.pub` and tick **Allow write access**.
+3. Add the private half (`data_deploy_key`) as the `DATA_DEPLOY_KEY` secret, then delete both local files.
+4. **Settings** → **Rules** → **Rulesets**: require a pull request and the three status checks on `main`, block force pushes and deletion, and add **Deploy keys** to the bypass list. That is the only bypass.
+
+A useful side effect: pushes made with a deploy key (unlike the default `GITHUB_TOKEN`) trigger workflows, so every data commit runs the full CI suite before it is published. If you skip this step, leave `main` unprotected: with the secret unset, `actions/checkout` falls back to the default token, which can push to an unprotected branch (but its pushes do not trigger CI).
 
 ---
 
@@ -80,16 +92,16 @@ That's the only Pages setting. The `deploy` workflow does the rest.
 
 1. Open the **Actions** tab. If GitHub asks you to enable workflows, click the button to enable them.
 2. In the left sidebar, click **update-data** → **Run workflow** → **Run workflow**. Leave "sections" empty to build everything.
-3. Wait a few minutes. When it finishes, the **deploy** workflow starts by itself and publishes the site.
+3. Wait a few minutes. When it finishes, the data commit triggers **ci**, and once that passes the **deploy** workflow publishes the site.
 4. The site URL appears in the deploy run summary and under **Settings** → **Pages**. It looks like `https://YOUR-USER.github.io/macrolens/`.
 
 ### What runs automatically from now on
 
 | Workflow      | When                                                                  | What it does                                                                       |
 | ------------- | --------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| `ci`          | every push and pull request                                           | runs the Python tests, then type-checks and builds the web app                     |
+| `ci`          | every push and pull request                                           | runs the Python tests, type-checks and builds the web app, and runs the Playwright browser tests |
 | `update-data` | weekdays 22:30 UTC (after the US close), Saturdays 12:00 UTC, or manually | fetches data and commits changed `web/public/data/*.json`                          |
-| `deploy`      | every push to `main`, after every `update-data` run, or manually      | builds `web/` and publishes it to GitHub Pages                                     |
+| `deploy`      | after `ci` passes on a push to `main` (including data commits), or manually | builds exactly the commit that passed and publishes it to GitHub Pages       |
 
 To rebuild only some sections, use **Run workflow** with "sections" set to a space-separated list, for example `markets economy`.
 

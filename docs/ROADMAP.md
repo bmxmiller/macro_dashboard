@@ -22,14 +22,14 @@ npm run typecheck && npm run build && npm run test:e2e
 Skills: `/add-metric`, `/new-panel`, `/ship-feature`. Agents (`.claude/agents/`): `finance-reviewer`, `data-verifier`, `prompt-redteamer`, `ui-reviewer`. Custom agent types load at session start; if one isn't found, spawn a `general-purpose` agent and tell it to read the `.md` and adopt it as its role.
 
 ## 3. Finishing and clean-up (do these first)
-- [ ] **Rotate the three keys** (FRED, Groq, Gemini). They were pasted into a chat. Create new ones, update `.env` and the three GitHub secrets, delete the old ones.
+- [x] ~~Rotate the three keys~~ (owner decided the risk is nil, 2026-11-14).
 - [ ] **Remove leftover worktrees and folders:** `git worktree remove ../Macro_Dashboard-wt/<ai-insights|data-panels|visual-qa>`, then delete `../Macro_Dashboard-wt/` (the old `frontend` folder was locked by Windows; restart VS Code first).
 - [ ] **Delete merged branches:** local `agent/*`, `chore/readme-protection`, `feat/*`, `fix/*`; the same on `origin`. Then turn on *Settings → General → Automatically delete head branches*.
 - [ ] **Close issue #9** (`prompt-redteamer` is built); confirm #8 closed with PR #15.
-- [ ] **README:** drop "(rolling out)" from the AI row; re-check the panel/test counts; **retake `docs/images/` screenshots** (they predate the AI panels).
-- [ ] **`docs/SETUP.md` is out of date:** it says deploy runs after every push and `update-data`; now deploy runs only after CI passes. Add the `DATA_DEPLOY_KEY` secret and how the key and the ruleset were created, plus the two AI secrets.
+- [x] **README:** drop "(rolling out)" from the AI row; re-check the panel/test counts; **retake `docs/images/` screenshots** (they predate the AI panels).
+- [x] **`docs/SETUP.md` is out of date:** it says deploy runs after every push and `update-data`; now deploy runs only after CI passes. Add the `DATA_DEPLOY_KEY` secret and how the key and the ruleset were created, plus the two AI secrets.
 - [ ] **Look at the live site** in light, dark and mobile (the AI panels especially). This needs the Chrome tool; it was disconnected for most of the build, so the AI panels have never been viewed on the live site in an agent session.
-- [ ] **Add a `LICENSE`** (decide: MIT?) and turn on GitHub secret scanning + push protection for the public repo.
+- [x] **Add a `LICENSE`** (MIT, done). Still to do by hand: turn on GitHub secret scanning + push protection for the public repo.
 - [ ] Pin the repo on your GitHub profile and add the live URL and topics to the repo About (the URL and topics are already set).
 
 ## 4. Biggest gap: panels from the original StableBread screenshots not built yet

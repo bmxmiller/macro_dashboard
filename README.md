@@ -17,10 +17,10 @@ Macro data is scattered across FRED, the BLS, the Fed, the Bank of England, the 
 | Area | Panels |
 |---|---|
 | **Overview** | Index snapshot (S&P, Nasdaq, Dow, Russell, VIX, 10Y, DXY, gold, oil, BTC) with sparklines |
-| **AI insights** *(rolling out)* | AI macro brief and news clusters; Macro Regime (growth × inflation quadrant, policy stance, credit vs duration) |
+| **AI insights** | AI macro brief and news clusters; Macro Regime (growth × inflation quadrant, policy stance, credit vs duration) |
 | **US macro** | 22 indicators (inflation, labour, growth, consumer, policy, debt), each with full history and NBER recession shading · upcoming releases + FOMC calendar |
 | **UK macro** | CPI, core CPI, unemployment, pay growth, GDP, Bank Rate, gilts (ONS + Bank of England) |
-| **Equities** | GICS sector performance · earnings calendar (top 64 S&P names, EPS estimate vs prior year) |
+| **Equities** | S&P 500 heat map (treemap of ~500 companies by market cap, coloured by return) · GICS sector performance · earnings calendar (top 64 S&P names, EPS estimate vs prior year) |
 | **Rates & credit** | Fixed income total returns with yield and duration · Treasury yield curve vs 1M/1Y ago, 2s10s and 3m10y |
 | **Commodities & FX** | 30 futures across energy, metals, ags and livestock · 16 currencies vs USD |
 | **Sentiment & positioning** | CNN Fear & Greed + 7 components · VIX term structure · CFTC Commitments of Traders with 3-year percentiles |
@@ -64,8 +64,8 @@ This project is also a case study in **agentic software engineering**. The full 
 - **Review before merge:** each PR gets `/code-review` (inline PR comments) and a custom **`finance-reviewer`** agent that checks the numbers and the economics. Findings are relayed back to the authoring agent and fixed with regression tests.
 - **Guardrails enforced by the harness:** a post-edit **hook** runs pytest/tsc after every change and feeds failures straight back to the agent. It caught broken intermediate states several times.
 - **Reusable tooling:**
-  - **Skill:** `/add-metric`
-  - **Custom agents:** `finance-reviewer`, `data-verifier`
+  - **Skills:** `/add-metric`, `/new-panel`, `/ship-feature` (plan → parallel agents → PRs → review → merge → verify)
+  - **Custom agents:** `finance-reviewer`, `data-verifier`, `prompt-redteamer`, `ui-reviewer`
   - **Project memory:** `CLAUDE.md`
 - **External validation:** the published numbers were cross-checked against an independent macro dashboard and official sources.
 
@@ -75,6 +75,9 @@ Real problems the agents hit and solved:
 - ONS publishing 3-month labour data under the middle month
 - an LLM quoting an ETF *price* as an *index level*
 - the harness's worktree isolation failing on a Windows path quirk
+
+## Licence
+MIT, see [LICENSE](LICENSE).
 
 ## Tech stack
 **Pipeline:** Python 3.13, pandas, pydantic, yfinance, feedparser · **Web:** React 19, TypeScript, Vite, Tailwind v4, ECharts (lazy-loaded), Zustand · **Quality:** pytest (offline), Playwright e2e plus screenshot artifacts · **Ops:** GitHub Actions (CI, scheduled data, Pages deploy), a branch ruleset with a deploy-key bypass for data commits · **AI:** Gemini and Groq free tiers, called from CI only.
