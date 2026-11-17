@@ -40,9 +40,9 @@ function QuadrantGrid({ gi }: { gi: GrowthInflation }) {
   return (
     <div className="px-3 pt-1">
       <div className="flex gap-1.5">
-        <div className="flex h-[150px] items-center justify-between text-[9px] font-bold uppercase tracking-wide [writing-mode:vertical-rl] rotate-180"
+        <div className="flex h-[150px] shrink-0 items-center justify-between overflow-hidden whitespace-nowrap text-[9px] font-bold uppercase tracking-wide [writing-mode:vertical-rl] rotate-180"
           style={{ color: "var(--muted)" }}>
-          <span>Decelerating</span><span>Inflation</span><span>Accelerating</span>
+          <span>Falling</span><span>Inflation</span><span>Rising</span>
         </div>
         <div className="relative flex-1 grid grid-cols-2 grid-rows-2 gap-px rounded-sm overflow-hidden h-[150px]"
           style={{ background: "var(--border)" }} role="img"
@@ -78,7 +78,7 @@ function QuadrantGrid({ gi }: { gi: GrowthInflation }) {
         </div>
       </div>
       <div className="flex justify-between pl-5 pt-0.5 text-[9px] font-bold uppercase tracking-wide" style={{ color: "var(--muted)" }}>
-        <span>← Decelerating</span><span>Growth</span><span>Accelerating →</span>
+        <span>← Falling</span><span>Growth</span><span>Rising →</span>
       </div>
       {gi.level_note && <div className="pt-1 text-[10.5px]" style={{ color: "var(--ink-2)" }}>{gi.level_note}</div>}
     </div>
