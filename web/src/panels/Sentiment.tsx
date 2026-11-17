@@ -39,7 +39,7 @@ export function Sentiment() {
 
   return (
     <Panel id="sentiment" title="Market Sentiment" subtitle="CNN Fear & Greed · VIX term structure"
-      about={ABOUT} sourceUrl={data?.fear_greed?.source_url ?? "https://www.cnn.com/markets/fear-and-greed"} stale={stale}>
+      about={ABOUT} sourceUrl={data?.fear_greed?.source_url ?? "https://www.cnn.com/markets/fear-and-greed"} stale={stale} updatedSection="sentiment">
       {error && <PanelMessage>Could not load data: {error}</PanelMessage>}
       {!data && !error && <PanelMessage>Loading…</PanelMessage>}
       {data && (

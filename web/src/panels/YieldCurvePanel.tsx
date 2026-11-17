@@ -18,7 +18,7 @@ export function YieldCurvePanel() {
   return (
     <Panel id="yield_curve" title="US Treasury Yield Curve"
       subtitle={data?.asof ? `As of ${fmtDate(data.asof, { month: "short", day: "numeric", year: "numeric" })}` : undefined}
-      about={data?.about} sourceUrl={data?.source_url} stale={stale}>
+      about={data?.about} sourceUrl={data?.source_url} stale={stale} updatedSection="yield_curve">
       {error && <PanelMessage>Could not load data: {error}</PanelMessage>}
       {!data && !error && <PanelMessage>Loading…</PanelMessage>}
       {data && (

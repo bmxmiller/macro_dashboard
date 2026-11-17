@@ -4,7 +4,7 @@ import { PANELS } from "./panels/registry";
 import { useSettings } from "./state/store";
 
 const SPAN: Record<number, string> = {
-  3: "xl:col-span-3", 4: "xl:col-span-4", 6: "xl:col-span-6", 8: "xl:col-span-8", 12: "xl:col-span-12",
+  3: "xl:col-span-3", 4: "xl:col-span-4", 6: "xl:col-span-6", 8: "xl:col-span-8", 12: "md:col-span-2 xl:col-span-12",
 };
 
 /** Pick readable ink (dark or light) for text on the accent colour. */
@@ -33,13 +33,13 @@ export default function App() {
   return (
     <div className="min-h-full flex flex-col">
       <Header />
-      {/* Full-width strips (span 12) size to their content */}
-      {visible.filter((p) => p.span === 12).map(({ id, Component }) => (
+      {/* The index strip sizes to its content; every other panel sits in the dense grid */}
+      {visible.filter((p) => p.id === "index_snapshot").map(({ id, Component }) => (
         <div key={id} className="px-2 pt-2"><Component /></div>
       ))}
-      <main className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-12 gap-2 p-2 auto-rows-[460px]">
-        {visible.filter((p) => p.span !== 12).map(({ id, span, tall, Component }) => (
-          <div key={id} className={`min-h-0 flex flex-col ${SPAN[span]} ${tall ? "row-span-2" : ""}`}>
+      <main className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-12 grid-flow-dense gap-2 p-2 auto-rows-[460px]">
+        {visible.filter((p) => p.id !== "index_snapshot").map(({ id, span, tall, Component }) => (
+          <div key={id} className={`min-h-0 flex flex-col [&>*]:flex-1 ${SPAN[span]} ${tall ? "row-span-2" : ""}`}>
             <Component />
           </div>
         ))}

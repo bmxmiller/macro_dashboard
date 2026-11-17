@@ -37,7 +37,7 @@ export function NewsFeed() {
 
   return (
     <Panel id="news" title="Market News" subtitle={data ? `Last ${data.window_hours}h · ${data.items.length} headlines` : undefined}
-      about={ABOUT} aboutExtra={data && <FeedHealth sources={data.sources} />} stale={stale}
+      about={ABOUT} aboutExtra={data && <FeedHealth sources={data.sources} />} stale={stale} updatedSection="news"
       headerRight={data && <FeedHealthBadge sources={data.sources} />}>
       {error && <PanelMessage>Could not load data: {error}</PanelMessage>}
       {!data && !error && <PanelMessage>Loading…</PanelMessage>}

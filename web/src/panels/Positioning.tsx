@@ -16,7 +16,7 @@ export function Positioning() {
 
   return (
     <Panel id="positioning" title="Futures Positioning" subtitle={`CFTC COT · speculators' net${asof}`}
-      about={data?.about} sourceUrl={data?.source_url} stale={stale}>
+      about={data?.about} sourceUrl={data?.source_url} stale={stale} updatedSection="positioning">
       {error && <PanelMessage>Could not load data: {error}</PanelMessage>}
       {!data && !error && <PanelMessage>Loading…</PanelMessage>}
       {data && data.markets.length === 0 && <PanelMessage>No positioning data available.</PanelMessage>}

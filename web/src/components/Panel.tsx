@@ -1,7 +1,9 @@
 import { useRef, useState, type ReactNode } from "react";
 import { toPng } from "html-to-image";
+import { useData } from "../lib/data";
+import { relTime } from "../lib/format";
 import { useSettings } from "../state/store";
-import type { About } from "../types";
+import type { About, Meta } from "../types";
 import { AboutButton } from "./AboutCard";
 import { CloseIcon, DownloadIcon } from "./Icons";
 
@@ -13,13 +15,16 @@ export interface PanelProps {
   aboutExtra?: ReactNode;         // extra content at the foot of the panel's About card
   sourceUrl?: string;
   stale?: string | null;          // error message when the pipeline section failed
+  updatedSection?: string;        // meta.json section whose last successful update is shown in the header
   headerRight?: ReactNode;
   className?: string;
   children: ReactNode;
 }
 
 /** The shared shell: header bar, About, PNG export, hide, stale badge. */
-export function Panel({ id, title, subtitle, about, aboutExtra, sourceUrl, stale, headerRight, className = "", children }: PanelProps) {
+export function Panel({ id, title, subtitle, about, aboutExtra, sourceUrl, stale, updatedSection, headerRight, className = "", children }: PanelProps) {
+  const { data: meta } = useData<Meta>("meta");
+  const updatedAt = updatedSection ? meta?.sections[updatedSection]?.updated_at : undefined;
   const ref = useRef<HTMLElement>(null);
   const toggle = useSettings((s) => s.togglePanel);
   const [busy, setBusy] = useState(false);
@@ -58,6 +63,12 @@ export function Panel({ id, title, subtitle, about, aboutExtra, sourceUrl, stale
           <span title={`Last update failed: ${stale}. Showing previous data.`}
             className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded"
             style={{ background: "var(--accent-ink)", color: "var(--accent)" }}>Stale</span>
+        )}
+        {updatedAt && (
+          <time dateTime={updatedAt} title={`Data last refreshed ${new Date(updatedAt).toLocaleString()}`}
+            className="hidden sm:inline text-[9.5px] font-semibold uppercase tracking-wide opacity-75 whitespace-nowrap">
+            ↻ {relTime(updatedAt)}
+          </time>
         )}
         {headerRight}
         <div className="flex items-center gap-0.5 header-actions" data-no-export>
