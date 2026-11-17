@@ -197,6 +197,7 @@ test.describe("dashboard", () => {
 
   test("Heat map: equal-weight toggle and ticker detail card (Esc closes)", async ({ page }) => {
     const hm = panel(page, "sp500_heatmap");
+    await expect(hm.getByRole("button", { name: "Balanced" })).toHaveAttribute("aria-pressed", "true");
     const eq = hm.getByRole("button", { name: "Equal wt" });
     await eq.click();
     await expect(eq).toHaveAttribute("aria-pressed", "true");

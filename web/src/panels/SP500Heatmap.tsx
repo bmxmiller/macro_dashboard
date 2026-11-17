@@ -10,6 +10,7 @@ import { useSettings, type HeatSize } from "../state/store";
 import type { Period, SP500, SP500Row } from "../types";
 
 const TOOLTIP_PERIODS: Period[] = ["1D", "1W", "1M", "3M", "YTD", "1Y"];
+const SIZE_NAME: Record<HeatSize, string> = { sqrt: "√ market cap", cap: "market cap", equal: "equal weight" };
 const coarse = () => window.matchMedia("(pointer: coarse)").matches;
 const esc = (s: string) => s.replace(/[&<>"']/g, (ch) => `&#${ch.charCodeAt(0)};`);
 const fmtCap = (bn: number) => (bn >= 1000 ? `$${(bn / 1000).toFixed(2)}T` : `$${bn.toFixed(bn >= 100 ? 0 : 1)}B`);
@@ -43,7 +44,7 @@ export function SP500Heatmap() {
 
   return (
     <Panel id="sp500_heatmap" title="S&P 500 Heat Map"
-      subtitle={`Price return · ${period} · size = ${size === "cap" ? "market cap" : "equal weight"}`}
+      subtitle={`Price return · ${period} · size = ${SIZE_NAME[size]}`}
       about={data?.about} sourceUrl={data?.source_url} stale={stale} updatedSection="sp500"
       headerRight={<SizeToggle size={size} onChange={setSize} />}>
       {error && <PanelMessage>Could not load data: {error}</PanelMessage>}
@@ -77,7 +78,7 @@ export function SP500Heatmap() {
 
 /** Market cap | Equal weight, styled for the accent header bar. */
 function SizeToggle({ size, onChange }: { size: HeatSize; onChange: (s: HeatSize) => void }) {
-  const opts: [HeatSize, string][] = [["cap", "Mkt cap"], ["equal", "Equal wt"]];
+  const opts: [HeatSize, string][] = [["sqrt", "Balanced"], ["cap", "Mkt cap"], ["equal", "Equal wt"]];
   return (
     <div role="group" aria-label="Rectangle size" data-no-export
       className="flex rounded border overflow-hidden text-[9.5px] font-bold" style={{ borderColor: "currentColor" }}>
@@ -163,7 +164,7 @@ function Treemap({ data, period, size, onPick }: { data: SP500; period: Period; 
     measure();
     return () => { window.clearTimeout(timer); ro.disconnect(); };
   }, []);
-  const weight = useCallback((r: SP500Row) => (size === "cap" ? r.cap : 1), [size]);
+  const weight = useCallback((r: SP500Row) => size === "cap" ? r.cap : size === "sqrt" ? Math.sqrt(r.cap) : 1, [size]);
   const total = useMemo(() => data.rows.reduce((a, r) => a + weight(r), 0), [data, weight]);
 
   const build = useCallback((c: ChartColors): EChartsOption => {
@@ -175,6 +176,7 @@ function Treemap({ data, period, size, onPick }: { data: SP500; period: Period; 
     const tree = [...bySector.entries()]
       .map(([sector, leaves]) => ({
         name: sector,
+        cap: leaves.reduce((a, l) => a + l.row.cap, 0),   // real market cap, whatever the sizing mode
         value: leaves.reduce((a, l) => a + l.value, 0),
         children: leaves.map((l) => ({ ...l, itemStyle: { color: perfColor(l.row.returns[period], period, c) } })),
       }))
@@ -185,10 +187,10 @@ function Treemap({ data, period, size, onPick }: { data: SP500; period: Period; 
       tooltip: {
         ...tooltipStyle(c), confine: true,
         formatter: (p: unknown) => {
-          const d = (p as { data: Partial<Leaf> & { name: string; value: number; children?: unknown[] } }).data;
+          const d = (p as { data: Partial<Leaf> & { name: string; value: number; cap?: number; children?: unknown[] } }).data;
           if (!d.row) {
             const n = d.children?.length ?? 0;
-            return `<b>${esc(d.name)}</b><br/>${n} companies${size === "cap" ? ` · ${fmtCap(d.value)}` : ""}`;
+            return `<b>${esc(d.name)}</b><br/>${n} companies${d.cap != null ? ` · ${fmtCap(d.cap)}` : ""}`;
           }
           const r = d.row;
           const cells = TOOLTIP_PERIODS.map((k) => `${k} <b>${signed(r.returns[k], 1)}</b>`).join(" &nbsp; ");
@@ -242,7 +244,7 @@ function Treemap({ data, period, size, onPick }: { data: SP500; period: Period; 
   return (
     <div ref={box} className="relative flex-1 min-h-112 md:min-h-80 w-full">
       <LazyEChart build={build} onClick={onClick} className="absolute inset-0"
-        ariaLabel={`S&P 500 heat map: ${data.rows.length} companies sized by ${size === "cap" ? "market cap" : "equal weight"}, coloured by ${period} price return. A data table follows.`} />
+        ariaLabel={`S&P 500 heat map: ${data.rows.length} companies sized by ${SIZE_NAME[size]}, coloured by ${period} price return. A data table follows.`} />
     </div>
   );
 }

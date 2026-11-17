@@ -27,7 +27,7 @@ export interface PanelDef {
   title: string;
   section: (typeof SECTIONS)[number];
   span: 3 | 4 | 6 | 8 | 12;
-  tall?: boolean;
+  tall?: boolean | 3;   // true = 2 grid rows, 3 = 3 rows
   Component: ComponentType;
 }
 
@@ -35,7 +35,7 @@ export const PANELS: PanelDef[] = [
   { id: "index_snapshot", title: "Index Snapshot", section: "Overview", span: 12, Component: IndexSnapshot },
   { id: "macro_brief", title: "AI Macro Brief", section: "AI Insights", span: 6, tall: true, Component: MacroBrief },
   { id: "macro_regime", title: "Macro Regime", section: "AI Insights", span: 6, tall: true, Component: RegimePanel },
-  { id: "sp500_heatmap", title: "S&P 500 Heat Map", section: "Equities", span: 12, tall: true, Component: SP500Heatmap },
+  { id: "sp500_heatmap", title: "S&P 500 Heat Map", section: "Equities", span: 12, tall: 3, Component: SP500Heatmap },
   { id: "economic_indicators", title: "Economic Indicators", section: "Macro", span: 3, tall: true, Component: EconomicIndicators },
   { id: "sectors", title: "Sector Performance", section: "Equities", span: 3, Component: () => <PerformancePanel panelId="sectors" /> },
   { id: "earnings_calendar", title: "Earnings Calendar", section: "Equities", span: 3, Component: EarningsCalendar },

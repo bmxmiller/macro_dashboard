@@ -4,7 +4,7 @@ import type { Period } from "../types";
 
 export type Theme = "dark" | "light";
 export type Palette = "classic" | "cvd";
-export type HeatSize = "cap" | "equal";   // S&P 500 heat map: rectangle area by market cap or equal weight
+export type HeatSize = "sqrt" | "cap" | "equal";   // S&P 500 heat map area: square root of market cap (balanced), market cap, or equal
 
 interface Settings {
   period: Period;
@@ -47,7 +47,7 @@ export const useSettings = create<Settings>()(
       palette: "classic",
       accent: "#14b8a6",
       hidden: [],
-      heatSize: "cap",
+      heatSize: "sqrt",
       setHeatSize: (heatSize) => set({ heatSize }),
       setPeriod: (period) => set({ period }),
       setTheme: (theme) => set({ theme }),
