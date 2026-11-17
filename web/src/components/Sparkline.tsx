@@ -1,5 +1,5 @@
-/** Minimal SVG sparkline. Colour follows the net direction of the window. */
-export function Sparkline({ data, width = 80, height = 22 }: { data: number[]; width?: number; height?: number }) {
+/** Minimal SVG sparkline. Colour follows the net direction of the window, unless `neutral` (for series where up is not simply good). */
+export function Sparkline({ data, width = 80, height = 22, neutral = false }: { data: number[]; width?: number; height?: number; neutral?: boolean }) {
   if (data.length < 2) return <svg width={width} height={height} aria-hidden />;
   const min = Math.min(...data);
   const max = Math.max(...data);
@@ -12,7 +12,7 @@ export function Sparkline({ data, width = 80, height = 22 }: { data: number[]; w
   const up = data[data.length - 1] >= data[0];
   return (
     <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} aria-hidden>
-      <polyline points={pts.join(" ")} fill="none" stroke={up ? "var(--pos)" : "var(--neg)"}
+      <polyline points={pts.join(" ")} fill="none" stroke={neutral ? "var(--muted)" : up ? "var(--pos)" : "var(--neg)"}
         strokeWidth={1.5} strokeLinejoin="round" strokeLinecap="round" />
     </svg>
   );

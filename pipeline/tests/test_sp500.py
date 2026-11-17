@@ -104,3 +104,14 @@ def test_build_rows_drops_row_whose_last_price_is_older_than_the_latest_date():
     rows, failed = sp500.build_rows(COMPANIES[:2], close, {"AAA": 1e9, "BBB": 1e9})
     assert [r["t"] for r in rows] == ["AAA"]
     assert failed == ["BBB"]
+
+
+def test_weekly_history_ends_on_latest_close_and_skips_missing():
+    close = _close()
+    dates, series = sp500.weekly_history(close, ["AAA", "BBB", "CCC", "ZZZ"], points=5, step=5)
+    assert len(dates) == 5 and dates == sorted(dates)
+    assert dates[-1] == close.index[-1].strftime("%Y-%m-%d")
+    assert series["AAA"][-1] == 139.0 and series["BBB"] == [50.0] * 5
+    assert series["CCC"] == [None] * 5          # no prices: nulls, never NaN (JSON allow_nan=False)
+    assert "ZZZ" not in series                  # not in the download
+    assert all(len(v) == len(dates) for v in series.values())

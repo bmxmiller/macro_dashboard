@@ -25,7 +25,7 @@ from .ai.regime_section import build_regime
 from .ai.llm import NoProviderAvailable
 from .fetchers import boe, cftc, cnn, earnings, fomc, fred, news, ons, sp500, yahoo
 from .fetchers.http import RedactingFilter, redact
-from .schemas import UK, SP500, Calendar, Earnings, Economy, Markets, News, Positioning, Sentiment, YieldCurve
+from .schemas import UK, SP500, Calendar, Earnings, Economy, Markets, News, Positioning, Sentiment, SP500History, YieldCurve
 from .transforms import econ
 from .transforms import sp500 as sp500_tx
 from .transforms.returns import PERIODS, period_returns, sparkline, trailing_yield
@@ -164,7 +164,12 @@ def build_economy() -> Economy:
             log.warning("metric %s failed: %s", m["id"], e)
             continue
         primary = m.get("series") or m["numerator"]
-        out.append(_metric_row(m, s, fred.series_url(primary)))
+        row = _metric_row(m, s, fred.series_url(primary))
+        try:
+            row["alt"] = _alt_view(m, raw)
+        except Exception as e:  # noqa: BLE001 - the toggle is optional; never lose the metric over it
+            log.warning("metric %s alt view failed: %s", m["id"], e)
+        out.append(row)
 
     usrec = raw.get("USREC")
     recs = recession_periods(usrec) if isinstance(usrec, pd.Series) else []
@@ -341,6 +346,28 @@ def _metric_row(m: dict, s: pd.Series, data_url: str, period_label: str | None =
         "about": m["about"],
         "source_url": m["source_url"],
         "data_url": data_url,
+    }
+
+
+_VIEW_LABEL = {"yoy": "YoY", "mom_pct": "MoM"}
+
+
+def _alt_view(m: dict, raw: dict) -> dict | None:
+    """Second transform of the same raw series (registry `alt_transform`) for the YoY/MoM toggle."""
+    alt_t = m.get("alt_transform")
+    if not alt_t:
+        return None
+    s = econ.apply_transform({**m, "transform": alt_t}, raw)
+    if s.empty:
+        return None
+    decimals = 2 if alt_t == "mom_pct" else 1  # monthly changes are small: 0.31%, not 0.3%
+    prev, change = econ.prev_and_change(s)
+    label, primary = _VIEW_LABEL[alt_t], _VIEW_LABEL[m["transform"]]
+    name = m["name"].replace(primary, label) if primary in m["name"] else f"{m['name']} {label}"
+    return {
+        "label": label, "primary_label": primary, "name": name, "decimals": decimals,
+        "value": round(float(s.iloc[-1]), 4), "prev": prev, "change": change,
+        "zscore": econ.zscore(s), "percentile": econ.percentile(s), "history": econ.history(s),
     }
 
 
@@ -579,6 +606,8 @@ def build_sp500() -> SP500:
         # Fail the section so the last good sp500.json is kept and flagged stale.
         raise RuntimeError(f"S&P 500 data missing for {len(failed)} of {len(tickers)} tickers")
     asof = close.dropna(how="all").index[-1].strftime("%Y-%m-%d")
+    dates, series = sp500_tx.weekly_history(close, [r["t"] for r in rows])
+    write_json("sp500_hist.json", SP500History(generated_at=now_iso(), asof=asof, dates=dates, series=series))
     return SP500(generated_at=now_iso(), asof=asof, periods=PERIODS, source_url=reg["source_url"],
                  about=reg["about"], failed=failed, rows=rows)
 

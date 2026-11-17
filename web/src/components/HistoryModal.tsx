@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { fmtDate, fmtValue } from "../lib/format";
 import type { Metric } from "../types";
@@ -19,8 +19,8 @@ function cutoff(last: string, years: number | null): string {
 }
 
 /** Full-history chart for one metric, with NBER recession shading and range buttons. */
-export function HistoryModal({ metric, recessions, onClose }: {
-  metric: Metric; recessions: [string, string][]; onClose: () => void;
+export function HistoryModal({ metric, recessions, onClose, viewToggle }: {
+  metric: Metric; recessions: [string, string][]; onClose: () => void; viewToggle?: ReactNode;
 }) {
   const [range, setRange] = useState<Range>("10Y");
   const closeBtn = useRef<HTMLButtonElement>(null);
@@ -105,6 +105,7 @@ export function HistoryModal({ metric, recessions, onClose }: {
                 {r}
               </button>
             ))}
+            {viewToggle && <span className="ml-2">{viewToggle}</span>}
             <span className="ml-auto text-[10px] flex items-center gap-1.5" style={{ color: "var(--muted)" }}>
               {recessions.length > 0 && <>
                 <span aria-hidden className="inline-block w-3 h-2.5 rounded-sm"

@@ -174,6 +174,46 @@ test.describe("dashboard", () => {
     await expect(dialog).toHaveCount(0);
   });
 
+  test("Economic Indicators: YoY/MoM toggle changes the view; rows carry a sparkline", async ({ page }) => {
+    const econ = panel(page, "economic_indicators");
+    const mom = econ.getByRole("button", { name: "MoM", exact: true }).first();
+    await expect(mom).toHaveAttribute("aria-pressed", "false");
+    await mom.click();
+    await expect(mom).toHaveAttribute("aria-pressed", "true");
+    await expect(econ.getByText(/CPI MoM/).first()).toBeVisible();
+    expect(await econ.locator("svg polyline").count()).toBeGreaterThan(5);
+  });
+
+  test("Yield curve: spread history chart opens and returns to the curve", async ({ page }) => {
+    const yc = panel(page, "yield_curve");
+    const btn = yc.getByRole("button", { name: /history$/ }).first();
+    await btn.click();
+    await expect(btn).toHaveAttribute("aria-pressed", "true");
+    await expect(yc.getByText(/Shaded = inverted/)).toBeVisible();
+    await expect(yc.locator("canvas").first()).toBeVisible({ timeout: 15_000 });
+    await yc.getByRole("button", { name: "Curve", exact: true }).click();
+    await expect(yc.getByText(/Shaded = inverted/)).toHaveCount(0);
+  });
+
+  test("Heat map: equal-weight toggle and ticker detail card (Esc closes)", async ({ page }) => {
+    const hm = panel(page, "sp500_heatmap");
+    await expect(hm.getByRole("button", { name: "Balanced" })).toHaveAttribute("aria-pressed", "true");
+    const eq = hm.getByRole("button", { name: "Equal wt" });
+    await eq.click();
+    await expect(eq).toHaveAttribute("aria-pressed", "true");
+    await expect(hm).toContainText("equal weight");
+    const mover = hm.getByRole("button", { name: /: show details$/ }).first();
+    const t = (await mover.getAttribute("aria-label"))!.split(":")[0];
+    await mover.click();
+    const dialog = page.getByRole("dialog", { name: new RegExp(`${t}$`) });
+    await expect(dialog).toBeVisible();
+    await expect(dialog).toContainText("by market cap");
+    await expect(dialog.locator("canvas").first()).toBeVisible({ timeout: 15_000 });
+    await expect(dialog.getByRole("link", { name: /Yahoo Finance/ })).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(dialog).toHaveCount(0);
+  });
+
   test("theme toggle switches html[data-theme] dark ↔ light", async ({ page }) => {
     const html = page.locator("html");
     const toggle = page.getByRole("button", { name: "Toggle light/dark theme" });

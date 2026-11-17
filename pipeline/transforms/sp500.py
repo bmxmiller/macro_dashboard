@@ -68,3 +68,21 @@ def build_rows(companies: list[dict], close: pd.DataFrame, shares: dict[str, flo
         })
     rows.sort(key=lambda r: r["cap"], reverse=True)
     return rows, failed
+
+
+def weekly_history(close: pd.DataFrame, tickers: list[str], points: int = 53, step: int = 5) -> tuple[list[str], dict[str, list[float | None]]]:
+    """Closing prices every `step` trading days back from the latest day (about weekly), `points` long.
+
+    The final point is the latest close itself (not a week-end), so the chart's right edge always
+    equals the published price. Prices are split-adjusted, matching the returns.
+    """
+    c = close.dropna(how="all")
+    if c.empty:
+        return [], {}
+    sampled = c.iloc[::-1].iloc[::step].iloc[:points].iloc[::-1]
+    dates = [d.strftime("%Y-%m-%d") for d in sampled.index]
+    series: dict[str, list[float | None]] = {}
+    for t in tickers:
+        if t in sampled:
+            series[t] = [None if pd.isna(v) else round(float(v), 2) for v in sampled[t]]
+    return dates, series

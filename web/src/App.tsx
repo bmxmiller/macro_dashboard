@@ -39,7 +39,7 @@ export default function App() {
       ))}
       <main className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-12 grid-flow-dense gap-2 p-2 auto-rows-[460px]">
         {visible.filter((p) => p.id !== "index_snapshot").map(({ id, span, tall, Component }) => (
-          <div key={id} className={`min-h-0 flex flex-col [&>*]:flex-1 ${SPAN[span]} ${tall ? "row-span-2" : ""}`}>
+          <div key={id} className={`min-h-0 flex flex-col [&>*]:flex-1 ${SPAN[span]} ${tall === 3 ? "row-span-3" : tall ? "row-span-2" : ""}`}>
             <Component />
           </div>
         ))}
