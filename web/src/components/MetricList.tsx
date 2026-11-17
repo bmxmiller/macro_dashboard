@@ -4,6 +4,8 @@ import type { Metric } from "../types";
 import { AboutButton } from "./AboutCard";
 import { HistoryModal } from "./HistoryModal";
 import { changeSuffix, MetricStats } from "./MetricStats";
+import { Sparkline } from "./Sparkline";
+import { metricView, ViewToggle } from "./ViewToggle";
 
 /** Stable empty default: a new [] each render would rebuild the chart option and reset zoom. */
 const EMPTY: [string, string][] = [];
@@ -19,7 +21,9 @@ export function MetricList({ groups, metrics, recessions = EMPTY }: {
   recessions?: [string, string][];
 }) {
   const [open, setOpen] = useState<Metric | null>(null);
+  const [alt, setAlt] = useState<Record<string, boolean>>({});  // metric id -> showing the alternative view
   const close = useCallback(() => setOpen(null), []);
+  const setView = (id: string, v: boolean) => setAlt((a) => ({ ...a, [id]: v }));
 
   return (
     <>
@@ -31,11 +35,17 @@ export function MetricList({ groups, metrics, recessions = EMPTY }: {
             <div className="group-label px-3 pt-2.5 pb-1 sticky top-0 z-[1]" style={{ background: "var(--surface)" }}>
               {g.label}
             </div>
-            {ms.map((m) => <MetricRow key={m.id} metric={m} onOpen={() => setOpen(m)} />)}
+            {ms.map((m) => (
+              <MetricRow key={m.id} metric={m} useAlt={!!alt[m.id]} onView={(v) => setView(m.id, v)}
+                onOpen={() => setOpen(m)} />
+            ))}
           </div>
         );
       })}
-      {open && <HistoryModal metric={open} recessions={recessions} onClose={close} />}
+      {open && (
+        <HistoryModal metric={metricView(open, !!alt[open.id])} recessions={recessions} onClose={close}
+          viewToggle={<ViewToggle metric={open} useAlt={!!alt[open.id]} onChange={(v) => setView(open.id, v)} />} />
+      )}
     </>
   );
 }
@@ -56,7 +66,10 @@ function trend(change: number | null, good: Metric["good"]): { arrow: string; co
   return { arrow: up ? "▲" : "▼", colour: isGood ? "var(--pos-ink)" : "var(--neg-ink)", word: `${word}, ${isGood ? "favourable" : "unfavourable"}` };
 }
 
-function MetricRow({ metric: m, onOpen }: { metric: Metric; onOpen: () => void }) {
+function MetricRow({ metric: base, useAlt, onView, onOpen }: {
+  metric: Metric; useAlt: boolean; onView: (alt: boolean) => void; onOpen: () => void;
+}) {
+  const m = metricView(base, useAlt);
   const change = roundedChange(m);
   const t = trend(change, m.good);
   // Clicks inside the portalled About popover bubble through React; ignore those.
@@ -74,6 +87,10 @@ function MetricRow({ metric: m, onOpen }: { metric: Metric; onOpen: () => void }
           {fmtValue(m.value, m.decimals, m.units)}
         </div>
       </button>
+      <div className="hidden sm:flex flex-col items-end gap-0.5 shrink-0">
+        <ViewToggle metric={base} useAlt={useAlt} onChange={onView} />
+        <span title="Last 24 observations" aria-hidden><Sparkline data={m.history.slice(-24).map((h) => h[1])} width={56} height={18} neutral /></span>
+      </div>
       <div className="text-right shrink-0 num">
         <div className="text-[11px] font-bold" style={{ color: t.colour }}>
           <span aria-label={t.word} title={t.word}>{t.arrow}</span>{" "}

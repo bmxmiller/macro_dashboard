@@ -62,6 +62,7 @@ class Metric(BaseModel):
     zscore: Optional[float]
     percentile: Optional[float]
     history: list[list]
+    alt: Optional[dict] = None   # second view (YoY<->MoM): {label, primary_label, name, decimals, value, prev, change, zscore, percentile, history}
     about: About
     source_url: str
     data_url: str
@@ -278,6 +279,14 @@ class SP500(BaseModel):
     about: About
     failed: list[str]
     rows: list[SP500Row]
+
+
+class SP500History(BaseModel):
+    """sp500_hist.json: about one year of ~weekly closes per company, loaded only when a ticker is opened."""
+    generated_at: str
+    asof: str
+    dates: list[str]
+    series: dict[str, list[Optional[float]]]   # ticker -> closes aligned to `dates`
 
 
 # ── Macro regime (regime.json) ─────────────────────────────────────────────

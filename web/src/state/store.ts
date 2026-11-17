@@ -4,6 +4,7 @@ import type { Period } from "../types";
 
 export type Theme = "dark" | "light";
 export type Palette = "classic" | "cvd";
+export type HeatSize = "cap" | "equal";   // S&P 500 heat map: rectangle area by market cap or equal weight
 
 interface Settings {
   period: Period;
@@ -11,6 +12,8 @@ interface Settings {
   palette: Palette;
   accent: string;
   hidden: string[];              // panel ids hidden via Customise View
+  heatSize: HeatSize;
+  setHeatSize: (h: HeatSize) => void;
   setPeriod: (p: Period) => void;
   setTheme: (t: Theme) => void;
   setPalette: (p: Palette) => void;
@@ -44,6 +47,8 @@ export const useSettings = create<Settings>()(
       palette: "classic",
       accent: "#14b8a6",
       hidden: [],
+      heatSize: "cap",
+      setHeatSize: (heatSize) => set({ heatSize }),
       setPeriod: (period) => set({ period }),
       setTheme: (theme) => set({ theme }),
       setPalette: (palette) => set({ palette }),

@@ -5,6 +5,8 @@
 #   source      fred (others added in later phases)
 #   series      provider series id (for `ratio`, numerator/denominator)
 #   transform   level | yoy | mom_pct | diff | ratio
+#   alt_transform  optional second view of the same raw series (yoy | mom_pct), shown behind a
+#               YoY/MoM toggle. Additive: the primary transform stays what the regime code reads.
 #   units       display suffix: "%", "k", "idx", "$bn"...
 #   decimals    display precision
 #   good        "up" | "down" | "neutral": direction that is *benign for the economy*
@@ -37,6 +39,7 @@ metrics:
     source: fred
     series: CPIAUCSL
     transform: yoy
+    alt_transform: mom_pct
     units: "%"
     decimals: 1
     good: down
@@ -53,6 +56,7 @@ metrics:
     source: fred
     series: CPILFESL
     transform: yoy
+    alt_transform: mom_pct
     units: "%"
     decimals: 1
     good: down
@@ -69,6 +73,7 @@ metrics:
     source: fred
     series: PCEPILFE
     transform: yoy
+    alt_transform: mom_pct
     units: "%"
     decimals: 1
     good: down
@@ -85,6 +90,7 @@ metrics:
     source: fred
     series: PPIFIS
     transform: yoy
+    alt_transform: mom_pct
     units: "%"
     decimals: 1
     good: down
@@ -217,6 +223,7 @@ metrics:
     source: fred
     series: INDPRO
     transform: yoy
+    alt_transform: mom_pct
     units: "%"
     decimals: 1
     good: up
@@ -267,6 +274,7 @@ metrics:
     source: fred
     series: RSAFS
     transform: mom_pct
+    alt_transform: yoy
     units: "%"
     decimals: 1
     good: up
@@ -317,6 +325,7 @@ metrics:
     source: fred
     series: M2SL
     transform: yoy
+    alt_transform: mom_pct
     units: "%"
     decimals: 1
     good: neutral
@@ -398,8 +407,8 @@ metrics:
 yield_curve:
   about:
     what: US Treasury yields across maturities from 1 month to 30 years (constant-maturity series from the Treasury, via FRED), compared with 1 month and 1 year ago.
-    why: The shape of the curve encodes the market's view of future policy rates, growth and inflation. An inverted curve (short rates above long) has preceded every US recession since the 1960s.
-    how_to_read: A steepening curve after an inversion ("bull steepener" from falling short rates) has historically arrived close to recession onset, as the Fed cuts. A "bear steepener" (long rates rising) reflects term-premium or fiscal worries. Watch 2s10s and 3m10y.
+    why: The shape of the curve encodes the market's view of future policy rates, growth and inflation. An inverted curve (short rates above long) has preceded most US recessions since the 1960s, with a long and variable lag, and has also given false signals.
+    how_to_read: A steepening curve after an inversion ("bull steepener" from falling short rates) has historically arrived close to recession onset, as the Fed cuts. A "bear steepener" (long rates rising) reflects term-premium or fiscal worries. Watch 2s10s and 3m10y. Use the buttons under the chart (or click a spread tile) to see each spread's history in basis points; red shading marks the periods it was inverted (below 0 bp). Inversions have preceded past recessions with a long and variable lag, and are not a forecast.
   source_url: https://home.treasury.gov/resource-center/data-chart-center/interest-rates
   tenors:
     - { label: 1M,  series: DGS1MO, years: 0.083 }

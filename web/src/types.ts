@@ -29,7 +29,14 @@ export interface Metric {
   prev: number | null; change: number | null; year_ago: number | null;
   zscore: number | null; percentile: number | null;
   history: [string, number][];
+  alt?: MetricAlt | null;
   about: About; source_url: string; data_url: string;
+}
+/** Second view of the same raw series (YoY <-> MoM); overlays the Metric fields it names. */
+export interface MetricAlt {
+  label: string; primary_label: string; name: string; decimals: number;
+  value: number | null; prev: number | null; change: number | null;
+  zscore: number | null; percentile: number | null; history: [string, number][];
 }
 export interface Economy {
   generated_at: string;
@@ -140,6 +147,12 @@ export interface SP500Row {
   price: number; shares: number;
   cap: number;                                   // market cap, US$ billions
   returns: Partial<Record<Period, number | null>>; // PRICE returns, %
+}
+/** sp500_hist.json: ~weekly closes for the last year, loaded only when a ticker is opened. */
+export interface SP500History {
+  generated_at: string; asof: string;
+  dates: string[];
+  series: Record<string, (number | null)[]>;
 }
 export interface SP500 {
   generated_at: string; asof: string; periods: Period[]; source_url: string;
