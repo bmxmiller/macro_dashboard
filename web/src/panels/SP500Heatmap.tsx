@@ -32,7 +32,7 @@ export function SP500Heatmap() {
   return (
     <Panel id="sp500_heatmap" title="S&P 500 Heat Map"
       subtitle={`Price return · ${period} · size = market cap`}
-      about={data?.about} sourceUrl={data?.source_url} stale={stale}>
+      about={data?.about} sourceUrl={data?.source_url} stale={stale} updatedSection="sp500">
       {error && <PanelMessage>Could not load data: {error}</PanelMessage>}
       {!data && !error && <PanelMessage>Loading…</PanelMessage>}
       {data && (

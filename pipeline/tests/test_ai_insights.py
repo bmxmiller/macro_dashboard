@@ -112,16 +112,41 @@ def test_falls_back_to_next_provider_after_two_rejections(data_dir, keys, monkey
     assert out.model == llm.configured_providers(llm.load_config())[1].model
 
 
-def test_provider_error_moves_on_and_all_failing_raises(data_dir, keys, monkeypatch):
+def test_provider_error_moves_on_and_all_failing_publishes_auto_summary(data_dir, keys, monkeypatch):
     nid = first_news_id(data_dir)
     bad = answer(nid, extra=" (+42.42%)")
     n = len(llm.configured_providers(llm.load_config()))
     # first provider errors (1 call), every other provider is rejected twice (2 calls each)
     fake = ScriptedLLM([llm.LLMError("HTTP 500")] + [bad] * (2 * (n - 1)))
     monkeypatch.setattr(insights.llm, "generate", fake)
-    with pytest.raises(insights.InsightsError):
-        insights.build_insights(data_dir)
+    out = insights.build_insights(data_dir)
     assert len(fake.calls) == 1 + 2 * (n - 1)
+    assert (out.provider, out.model) == ("code", "auto-summary")  # grounded template, not a stale AI brief
+
+
+def test_fallback_output_passes_the_validator(data_dir):
+    inputs = context.load_inputs(data_dir)
+    regime = insights.load_regime(data_dir, inputs, llm.load_config())
+    digest = context.build_digest(inputs, regime)
+    fb = insights.fallback_output(digest)
+    assert fb is not None
+    assert insights.validate.validate(fb, digest) == []
+
+
+def test_repair_strips_leaked_field_names_but_never_numbers():
+    from pipeline.ai import repair
+    assert repair.repair_text("rose to a level_pct of 5.15% today") == "rose to 5.15% today"
+    assert repair.repair_text("the ret_1w_pct up 0.4%") == "the up 0.4%"
+    assert "guarantee" in repair.repair_text("no guarantee")  # advice words are left for the validator
+    out = repair.repair({"brief": {"headline": "x level_pct 1.5%"}, "item_ids": ["a_b"]})
+    assert out["item_ids"] == ["a_b"] and "1.5%" in out["brief"]["headline"]
+
+
+def test_retry_after_parsing():
+    assert llm.retry_after_seconds("Please try again in 1m3.2s.") == pytest.approx(63.2)
+    assert llm.retry_after_seconds("try again in 7.5s") == 7.5
+    assert llm.retry_after_seconds("no hint") is None
+    assert llm.retry_after_seconds("x", "12") == 12.0
 
 
 def test_unknown_news_id_is_rejected(data_dir, keys, monkeypatch):
@@ -198,8 +223,18 @@ def test_build_skips_cleanly_without_keys(isolated_build, no_keys):
     assert meta["ok"] is True and meta["skipped"] is True and "GEMINI_API_KEY" in meta["note"]
 
 
-def test_build_failure_keeps_previous_and_flags_stale(isolated_build, keys, monkeypatch):
+def test_build_all_providers_failing_publishes_auto_summary_and_flags_stale(isolated_build, keys, monkeypatch):
     monkeypatch.setattr(insights.llm, "generate", ScriptedLLM([llm.LLMError("down")] * 4))
+    (isolated_build / "insights.json").write_text('{"previous": true}', encoding="utf-8")
+    assert build.main(["--only", "insights"]) == 1
+    assert json.loads((isolated_build / "insights.json").read_text())["provider"] == "code"  # not the days-old brief
+    sec = json.loads((isolated_build / "meta.json").read_text())["sections"]["insights"]
+    assert sec["ok"] is False and "auto-summary" in sec["error"]  # stays visible: Stale badge + red job
+
+
+def test_build_failure_without_fallback_keeps_previous_and_flags_stale(isolated_build, keys, monkeypatch):
+    monkeypatch.setattr(insights.llm, "generate", ScriptedLLM([llm.LLMError("down")] * 4))
+    monkeypatch.setattr(insights, "fallback_output", lambda digest: None)
     (isolated_build / "insights.json").write_text('{"previous": true}', encoding="utf-8")
     assert build.main(["--only", "insights"]) == 1
     assert json.loads((isolated_build / "insights.json").read_text()) == {"previous": True}
@@ -215,4 +250,3 @@ def test_failure_after_skip_clears_the_no_key_note(isolated_build, keys, monkeyp
     assert build.main(["--only", "insights"]) == 1
     sec = json.loads((isolated_build / "meta.json").read_text())["sections"]["insights"]
     assert sec["ok"] is False and "skipped" not in sec and "note" not in sec
-    assert sec["updated_at"] == "2026-11-01T00:00:00+00:00"  # last good output time is kept

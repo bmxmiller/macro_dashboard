@@ -17,7 +17,7 @@ export function EconomicIndicators() {
 
   return (
     <Panel id="economic_indicators" title="Economic Indicators" subtitle="Latest print vs. previous"
-      about={ABOUT} sourceUrl="https://fred.stlouisfed.org/" stale={stale}>
+      about={ABOUT} sourceUrl="https://fred.stlouisfed.org/" stale={stale} updatedSection="economy">
       {error && <PanelMessage>Could not load data: {error}</PanelMessage>}
       {!data && !error && <PanelMessage>Loading…</PanelMessage>}
       {data && <MetricList groups={data.groups} metrics={data.metrics} recessions={data.recessions} />}

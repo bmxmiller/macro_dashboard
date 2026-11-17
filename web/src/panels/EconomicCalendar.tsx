@@ -37,7 +37,7 @@ export function EconomicCalendar() {
 
   return (
     <Panel id="economic_calendar" title="Upcoming Releases" subtitle="US data & Fed · ET"
-      about={ABOUT} sourceUrl={fomcUrl} stale={stale}>
+      about={ABOUT} sourceUrl={fomcUrl} stale={stale} updatedSection="calendar">
       {error && <PanelMessage>Could not load data: {error}</PanelMessage>}
       {!data && !error && <PanelMessage>Loading…</PanelMessage>}
       {data?.note && (

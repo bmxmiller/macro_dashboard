@@ -36,7 +36,7 @@ export function AiBadge({ data, note }: { data: Insights; note: string | null })
       <span className="font-bold uppercase tracking-wide px-1.5 py-[1px] rounded-sm border"
         style={{ borderColor: "var(--accent)", color: "var(--ink)" }}
         title={`Written by ${data.provider}/${data.model} at ${data.generated_at}`}>
-        AI · {data.provider}/{data.model} · {relTime(data.generated_at)}
+        {data.provider === "code" ? "Auto-summary · AI unavailable" : `AI · ${data.provider}/${data.model}`} · {relTime(data.generated_at)}
       </span>
       {note && <span title={note}>Not refreshed: no LLM key set</span>}
     </div>

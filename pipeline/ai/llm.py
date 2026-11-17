@@ -14,6 +14,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -40,6 +41,27 @@ class NoProviderAvailable(LLMError):
 
 class _Transient(LLMError):
     """Worth retrying on the same provider."""
+
+    def __init__(self, msg: str, retry_after: float | None = None):
+        super().__init__(msg)
+        self.retry_after = retry_after  # seconds the provider asked us to wait (429), if it said
+
+
+_RETRY_HINT = re.compile(r"try again in\s+(?:(\d+(?:\.\d+)?)m)?\s*(?:(\d+(?:\.\d+)?)s)?", re.IGNORECASE)
+MAX_WAIT_S = 65.0  # never sleep longer than this for one retry (a TPM window is 60 s)
+
+
+def retry_after_seconds(text: str, header: str | None = None) -> float | None:
+    """Seconds to wait, from a Retry-After header or Groq's "Please try again in 1m3.2s" text."""
+    if header:
+        try:
+            return float(header)
+        except ValueError:
+            pass
+    m = _RETRY_HINT.search(text)
+    if m and (m.group(1) or m.group(2)):
+        return float(m.group(1) or 0) * 60 + float(m.group(2) or 0)
+    return None
 
 
 @dataclass(frozen=True)
@@ -103,7 +125,8 @@ def _post_json(url: str, headers: dict, body: dict, timeout: float) -> dict:
             detail = e.response.text[:300].replace("\n", " ")
         msg = redact(f"HTTP {code}: {detail}")
         if code == 429 or code >= 500:
-            raise _Transient(msg) from None
+            hdr = e.response.headers.get("retry-after") if e.response is not None else None
+            raise _Transient(msg, retry_after_seconds(detail, hdr) if code == 429 else None) from None
         raise LLMError(msg) from None
     except (requests.Timeout, requests.ConnectionError) as e:
         raise _Transient(redact(f"{type(e).__name__}: {e}")) from None
@@ -201,7 +224,9 @@ def generate(system: str, prompt: str, schema: dict, *,
                 msg = redact(str(e))
                 log.warning("%s attempt %d failed: %s", spec.label, attempt + 1, msg)
                 if attempt < int(cfg.get("retries", 2)):
-                    _sleep(delay)
+                    # honour the provider's own hint (Groq asks ~50 s) instead of a 4 s guess
+                    wait = min(e.retry_after + 1, MAX_WAIT_S) if e.retry_after else delay
+                    _sleep(max(wait, delay))
                     delay *= 2
                 else:
                     errors.append(f"{spec.label}: {msg}")

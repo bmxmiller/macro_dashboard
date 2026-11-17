@@ -52,7 +52,7 @@ export function EarningsCalendar() {
   return (
     <Panel id="earnings_calendar" title="Earnings Calendar"
       subtitle={data ? `Next ${data.window_days} days · top ${data.universe_size} S&P 500` : undefined}
-      about={data?.about} sourceUrl="https://finance.yahoo.com/calendar/earnings" stale={stale}
+      about={data?.about} sourceUrl="https://finance.yahoo.com/calendar/earnings" stale={stale} updatedSection="earnings"
       aboutExtra={data && data.failed.length > 0 && (
         <p className="m-0 text-[11px]" style={{ color: "var(--muted)" }}>
           No calendar data on the last update for: {data.failed.join(", ")}.

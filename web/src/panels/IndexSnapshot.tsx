@@ -14,7 +14,7 @@ export function IndexSnapshot() {
 
   return (
     <Panel id="index_snapshot" title={panel?.title ?? "Index Snapshot"} subtitle="Last close · 1D change"
-      about={panel?.about} stale={stale}>
+      about={panel?.about} stale={stale} updatedSection="markets">
       {error && <PanelMessage>Could not load data: {error}</PanelMessage>}
       {!data && !error && <PanelMessage>Loading…</PanelMessage>}
       {rows.length > 0 && (

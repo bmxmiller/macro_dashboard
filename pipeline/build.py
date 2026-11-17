@@ -634,6 +634,11 @@ def main(argv=None) -> int:
                 model = build_calendar(economy)
             write_json(f"{name}.json", model)
             meta["sections"][name] = {"ok": True, "updated_at": now_iso()}
+            if name == "insights" and getattr(model, "provider", "") == "code":
+                # Published, but not by an LLM: keep the failure visible (Stale badge, red job).
+                status_ok = False
+                meta["sections"][name].update({"ok": False, "failed_at": now_iso(),
+                                               "error": "All AI providers failed or were rejected by the fact check; showing a code-written auto-summary"})
         except NoProviderAvailable as e:
             # Not a failure: no LLM key configured. Keep any previous insights.json untouched;
             # "skipped" + "note" let the UI explain why instead of flagging it stale.

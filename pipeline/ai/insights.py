@@ -19,7 +19,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from ..schemas import Insights
-from . import context, llm, validate
+from . import context, llm, repair, validate
 from .regime_section import build_regime
 
 log = logging.getLogger("ai.insights")
@@ -79,6 +79,10 @@ Regime (digest.regime, decided by deterministic code)
 5. Explain it; never override it. Only use the quadrant name(s) in allowed_quadrants. Say
    "boundary" if boundary is true. Describe growth/inflation with the given states
    (accelerating / decelerating / flat): these are directions of change, not levels.
+5b. Each regime component (industrial production, claims, GDP, core CPI, core PCE) has its own
+   "state". Only call a component firmer/stronger/accelerating if its state is "accelerating",
+   softer/weaker/slowing only if "decelerating"; if "flat", say it is little changed or steady.
+   Do not infer a direction from the value alone.
 6. Asset tendencies are written by code (regime.tendencies); you may refer to them, but do
    not invent new ones.
 
@@ -161,6 +165,7 @@ def build_insights(data_dir: Path, cfg: dict | None = None) -> Insights:
             except llm.LLMError as e:
                 failures.append(str(e))
                 break
+            res.data = repair.repair(res.data)  # wording-only fixes (field names, 'guarantee'); never numbers
             violations = validate.validate(res.data, digest)
             if not violations:
                 log.info("insights: accepted from %s (attempt %d)", spec.label, attempt)
@@ -169,7 +174,51 @@ def build_insights(data_dir: Path, cfg: dict | None = None) -> Insights:
                         len(violations), "; ".join(violations[:5]))
             failures.append(f"{spec.label} attempt {attempt}: {len(violations)} violations")
             prompt = feedback_prompt(base, violations)
-    raise InsightsError("no grounded answer from any provider: " + " | ".join(failures)[:500])
+    # Every provider failed. Publish a code-written summary (numbers copied from the digest, so it is
+    # grounded by construction) instead of leaving a days-old AI brief on screen.
+    fb = fallback_output(digest)
+    problems = validate.validate(fb, digest) if fb else ["no fallback possible"]
+    if problems:
+        raise InsightsError("no grounded answer from any provider: " + " | ".join(failures)[:500])
+    log.warning("insights: all providers failed; publishing the code-written auto-summary")
+    return _assemble(llm.LLMResult(data=fb, provider="code", model="auto-summary"), regime, inputs, cfg)
+
+
+def _signed_move(name: str, v: float, unit: str) -> str:
+    if v == 0:
+        return f"{name} was unchanged"
+    return f"{name} {'rose' if v > 0 else 'fell'} {abs(v)}{unit}"
+
+
+def fallback_output(digest: dict) -> dict | None:
+    """Template brief with no LLM: index moves, the computed regime and the code-written tendencies."""
+    snap = (digest.get("markets") or {}).get("index_snapshot") or []
+    moves = []
+    for r in snap:
+        if r.get("ret_1d_pct") is not None:
+            moves.append(_signed_move(r["name"], r["ret_1d_pct"], "%"))
+    gi = (digest.get("regime") or {}).get("growth_inflation")
+    if len(moves) < 1 or not gi:
+        return None
+    g, i = gi["growth"]["state"], gi["inflation"]["state"]
+    bullets = [f"{m} on the last close." for m in moves[:3]]
+    bullets.append(f"Growth momentum is {g} and inflation momentum is {i}.")
+    while len(bullets) < 3:
+        bullets.append(f"The computed regime is {gi['label']}.")
+    return {
+        "brief": {
+            "headline": f"Computed regime: {gi['label']}",
+            "bullets": bullets[:5],
+            "what_moved": "; ".join(moves[:4]) + ". The AI narrative is temporarily unavailable, so this is a code-written summary.",
+            "cycle_view": f"Growth momentum is {g} and inflation momentum is {i}, which the rules classify as {gi['label']}.",
+        },
+        "news_clusters": [],
+        "regime_explainer": {
+            "rationale": f"The regime is computed by code from growth and inflation momentum: growth is {g} and inflation is {i}.",
+            "caveats": ["Auto-summary: the AI explainer is temporarily unavailable.",
+                        "Direction of change, not level."],
+        },
+    }
 
 
 def _assemble(res: llm.LLMResult, regime: dict, inputs: dict, cfg: dict) -> Insights:

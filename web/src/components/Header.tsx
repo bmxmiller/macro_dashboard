@@ -41,11 +41,7 @@ export function Header() {
 
       <div className="flex-1" />
 
-      {meta && (
-        <span className="text-[10.5px]" style={{ color: "var(--muted)" }} title={meta.generated_at}>
-          Updated {relTime(meta.generated_at)}
-        </span>
-      )}
+      {meta && <FreshnessBadge meta={meta} />}
 
       <Popover label="Customise view" trigger={<SlidersIcon />} width={280}>
         <div className="p-3 text-[12px]">
@@ -96,5 +92,25 @@ export function Header() {
         {s.theme === "dark" ? <SunIcon /> : <MoonIcon />}
       </button>
     </header>
+  );
+}
+
+/** Global freshness: the oldest section's last good update, with a warning when a section failed. */
+function FreshnessBadge({ meta }: { meta: Meta }) {
+  const entries = Object.entries(meta.sections);
+  const failed = entries.filter(([, v]) => v.ok === false);
+  const times = entries.map(([, v]) => v.updated_at).filter((t): t is string => !!t).sort();
+  const oldest = times[0] ?? meta.generated_at;
+  const detail = failed.length
+    ? `Last update failed for: ${failed.map(([k]) => k).join(", ")}. Those panels show their previous data.`
+    : `Oldest section refreshed ${new Date(oldest).toLocaleString()}`;
+  return (
+    <span className="text-[10.5px] inline-flex items-center gap-1.5" style={{ color: "var(--muted)" }} title={detail}>
+      {failed.length > 0 && (
+        <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded"
+          style={{ border: "1px solid var(--neg)", color: "var(--neg)" }}>{failed.length} stale</span>
+      )}
+      Data refreshed {relTime(oldest)}
+    </span>
   );
 }

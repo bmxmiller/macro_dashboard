@@ -17,7 +17,7 @@ export function UkMacro() {
 
   return (
     <Panel id="uk_macro" title="UK Macro" subtitle="ONS · Bank of England · Yahoo (GBP/USD)"
-      about={ABOUT} sourceUrl="https://www.ons.gov.uk/economy" stale={stale}>
+      about={ABOUT} sourceUrl="https://www.ons.gov.uk/economy" stale={stale} updatedSection="uk">
       {error && <PanelMessage>Could not load data: {error}</PanelMessage>}
       {!data && !error && <PanelMessage>Loading…</PanelMessage>}
       {data && data.metrics.length === 0 && <PanelMessage>No UK data available.</PanelMessage>}

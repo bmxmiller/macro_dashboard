@@ -137,6 +137,13 @@ def news_digest(n: dict) -> list[dict]:
     return [{"id": i["id"], "source": i["source"], "title": i["title"]} for i in items]
 
 
+def _component_state(score) -> str:
+    """Same ±0.1 thresholds as the validator, spelled out so the model never has to infer a direction."""
+    if not isinstance(score, (int, float)):
+        return "flat"
+    return "accelerating" if score >= 0.1 else "decelerating" if score <= -0.1 else "flat"
+
+
 def regime_digest(regime: dict) -> dict:
     """The code-computed regime, with unit-suffixed fields the model may quote."""
     gi = regime["growth_inflation"]
@@ -145,7 +152,8 @@ def regime_digest(regime: dict) -> dict:
         return {"score": x["score"], "state": x["state"],
                 "components": [{"label": c["label"], "metric": c["metric"],
                                 f"value_{c['units'] if c['units'] != '%' else 'pct'}": c["value"],
-                                "score": c["score"], **c["detail"]} for c in x["components"]]}
+                                "score": c["score"], "state": _component_state(c["score"]),
+                                **c["detail"]} for c in x["components"]]}
     gp = {k: v for k, v in regime["growth_policy"].items() if k not in ("growth_direction", "note")}
     cd = {k: v for k, v in regime["credit_duration"].items()}
     return {"growth_inflation": {"quadrant": gi["quadrant"], "label": gi["label"], "boundary": gi["boundary"],

@@ -30,7 +30,7 @@ export function PerformancePanel({ panelId, showYield = false }: { panelId: stri
 
   return (
     <Panel id={panelId} title={panel?.title ?? panelId} subtitle={`Total return · ${period}`}
-      about={panel?.about} stale={stale}
+      about={panel?.about} stale={stale} updatedSection="markets"
       headerRight={
         <button type="button" className="icon-btn" data-no-export aria-pressed={sorted}
           title={sorted ? "Sorted by return (click for default order)" : "Default order (click to sort)"}
