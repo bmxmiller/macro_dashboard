@@ -47,7 +47,7 @@ export const useSettings = create<Settings>()(
       palette: "classic",
       accent: "#14b8a6",
       hidden: [],
-      heatSize: "sqrt",
+      heatSize: "cap",
       setHeatSize: (heatSize) => set({ heatSize }),
       setPeriod: (period) => set({ period }),
       setTheme: (theme) => set({ theme }),
