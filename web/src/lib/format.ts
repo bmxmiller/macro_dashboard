@@ -51,6 +51,32 @@ export function perfColor(
   return `rgb(${r},${g},${b})`;
 }
 
+/** Discrete heat level -3..+3: each step is a third of the period's saturation point (|v| < half a step = 0). */
+export function perfLevel(v: number | null | undefined, period: Period): number {
+  if (v == null || Number.isNaN(v)) return 0;
+  const step = SCALE[period] / 3;
+  const n = Math.min(3, Math.floor(Math.abs(v) / step + 0.5));
+  return v < 0 ? -n : n;
+}
+
+const LEVEL_MIX = [0, 24, 42, 60];   // % of the pole colour; capped below 62 so ink labels stay readable on canvas
+
+/** Canvas colour for a discrete heat level (see perfLevel). */
+export function levelColor(level: number, colors: { pos: string; neg: string; mid: string }): string {
+  const mid = hexToRgb(colors.mid);
+  const pole = hexToRgb(level < 0 ? colors.neg : colors.pos);
+  if (!mid || !pole || level === 0) return colors.mid;
+  const k = LEVEL_MIX[Math.abs(level)] / 100;
+  const [r, g, b] = pole.map((c, i) => Math.round(c * k + mid[i] * (1 - k)));
+  return `rgb(${r},${g},${b})`;
+}
+
+/** CSS background for a discrete heat level (legend swatches). */
+export function levelBg(level: number): string {
+  if (level === 0) return "var(--mid)";
+  return `color-mix(in oklab, var(--${level < 0 ? "neg" : "pos"}) ${LEVEL_MIX[Math.abs(level)]}%, var(--mid))`;
+}
+
 export function signed(v: number | null | undefined, decimals = 1, suffix = "%"): string {
   if (v == null || Number.isNaN(v)) return "–";
   const s = v > 0 ? "+" : v < 0 ? "−" : "";

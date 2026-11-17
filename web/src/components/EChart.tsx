@@ -15,15 +15,19 @@ echarts.use([LineChart, TreemapChart, GridComponent, TooltipComponent, MarkAreaC
  * memoised by the caller; the chart re-renders when it, the theme, palette or
  * accent change. Load it via <LazyEChart> so echarts stays in its own chunk.
  */
-export default function EChart({ build, className = "", style, ariaLabel, onClick }: {
+export default function EChart({ build, className = "", style, ariaLabel, onClick, onRendered }: {
   build: (c: ChartColors) => EChartsOption; className?: string; style?: CSSProperties; ariaLabel: string;
   /** Called with the clicked data item (`params.data`). */
   onClick?: (data: unknown) => void;
+  /** Called after every completed render (layout is final), e.g. to read treemap tile sizes. */
+  onRendered?: (chart: unknown) => void;   // the ECharts instance, untyped on purpose (its model API is internal)
 }) {
   const el = useRef<HTMLDivElement>(null);
   const chart = useRef<echarts.ECharts | null>(null);
   const clickRef = useRef(onClick);
   clickRef.current = onClick;
+  const renderedRef = useRef(onRendered);
+  renderedRef.current = onRendered;
   const theme = useSettings((s) => s.theme);
   const palette = useSettings((s) => s.palette);
   const accent = useSettings((s) => s.accent);
@@ -33,6 +37,7 @@ export default function EChart({ build, className = "", style, ariaLabel, onClic
     const c = echarts.init(el.current, undefined, { renderer: "canvas" });
     chart.current = c;
     c.on("click", (p) => clickRef.current?.((p as { data?: unknown }).data));
+    c.on("finished", () => renderedRef.current?.(c));
     const ro = new ResizeObserver(() => c.resize());
     ro.observe(el.current);
     return () => { ro.disconnect(); c.dispose(); chart.current = null; };
